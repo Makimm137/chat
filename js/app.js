@@ -72,17 +72,21 @@ const App = {
         });
         
         // 消息输入框内容变化调整高度和启用/禁用发送按钮
-        document.getElementById('message-input').addEventListener('input', (e) => {
+        const debouncedTextareaHandler = UIComponents._debounce((e) => {
             UIComponents.updateTextareaHeight(e.target);
             document.getElementById('send-message-btn').disabled = !e.target.value.trim();
-        });
+        }, 50);
+
+        document.getElementById('message-input').addEventListener('input', debouncedTextareaHandler);
         
-        // 搜索会话
-        document.getElementById('search-conversations').addEventListener('input', (e) => {
+        // 搜索会话 - 使用防抖
+        const debouncedSearch = UIComponents._debounce((e) => {
             const searchTerm = e.target.value.trim();
             const conversations = StorageService.searchConversations(searchTerm);
             UIComponents.renderConversations(conversations, this.currentConversation?.id);
-        });
+        }, 300);
+
+        document.getElementById('search-conversations').addEventListener('input', debouncedSearch);
         
         // ===== 设置面板 =====
         
@@ -148,11 +152,106 @@ const App = {
         // API提供商切换
         document.getElementById('api-provider').addEventListener('change', (e) => {
             const endpointGroup = document.querySelector('.api-endpoint-group');
-            if (e.value === 'azure' || e.value === 'other') {
+            const selectedValue = e.target.value;
+            if (selectedValue === 'azure' || selectedValue === 'other') {
                 endpointGroup.style.display = 'block';
             } else {
                 endpointGroup.style.display = 'none';
             }
+        });
+        
+        // ===== 角色设置增强功能 =====
+
+        // 性格标签点击
+        document.querySelectorAll('#personality-tags .tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                const tagValue = tag.dataset.tag;
+                if (tag.classList.contains('selected')) {
+                    // 取消选择
+                    tag.classList.remove('selected');
+                    const selectedTag = document.querySelector(`.selected-tag[data-value="${tagValue}"]`);
+                    if (selectedTag) selectedTag.remove();
+                } else {
+                    // 选择标签
+                    tag.classList.add('selected');
+                    const selectedTagsContainer = document.getElementById('selected-personality-tags');
+                    
+                    const tagElement = document.createElement('div');
+                    tagElement.className = 'selected-tag';
+                    tagElement.dataset.value = tagValue;
+                    tagElement.innerHTML = `
+                        ${tagValue}
+                        <span class="remove-tag">&times;</span>
+                    `;
+                    
+                    // 添加移除标签功能
+                    tagElement.querySelector('.remove-tag').addEventListener('click', () => {
+                        tagElement.remove();
+                        document.querySelector(`.tag[data-tag="${tagValue}"]`).classList.remove('selected');
+                        this._updateSystemPromptPreview();
+                    });
+                    
+                    selectedTagsContainer.appendChild(tagElement);
+                }
+                this._updateSystemPromptPreview();
+            });
+        });
+
+        // 添加自定义标签
+        document.getElementById('add-custom-tag-btn').addEventListener('click', () => {
+            const customTagInput = document.getElementById('custom-tag-input');
+            const customTag = customTagInput.value.trim();
+            
+            if (customTag) {
+                const selectedTagsContainer = document.getElementById('selected-personality-tags');
+                
+                // 检查是否已存在
+                const existingTag = document.querySelector(`.selected-tag[data-value="${customTag}"]`);
+                if (!existingTag) {
+                    const tagElement = document.createElement('div');
+                    tagElement.className = 'selected-tag custom';
+                    tagElement.dataset.value = customTag;
+                    tagElement.innerHTML = `
+                        ${customTag}
+                        <span class="remove-tag">&times;</span>
+                    `;
+                    
+                    // 添加移除标签功能
+                    tagElement.querySelector('.remove-tag').addEventListener('click', () => {
+                        tagElement.remove();
+                        this._updateSystemPromptPreview();
+                    });
+                    
+                    selectedTagsContainer.appendChild(tagElement);
+                }
+                
+                customTagInput.value = '';
+                this._updateSystemPromptPreview();
+            }
+        });
+
+        // 更新系统提示预览 - 使用防抖
+        const debouncedUpdatePrompt = UIComponents._debounce(() => this._updateSystemPromptPreview(), 300);
+
+        document.getElementById('character-description').addEventListener('input', debouncedUpdatePrompt);
+        document.getElementById('speech-style').addEventListener('input', debouncedUpdatePrompt);
+        document.getElementById('character-rules').addEventListener('input', debouncedUpdatePrompt);
+        document.getElementById('character-knowledge').addEventListener('input', debouncedUpdatePrompt);
+
+        // 复制系统提示
+        document.getElementById('copy-prompt-btn').addEventListener('click', () => {
+            const promptText = document.getElementById('system-prompt-preview').innerText;
+            navigator.clipboard.writeText(promptText).then(() => {
+                UIComponents.showNotification('系统提示已复制到剪贴板');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                UIComponents.showNotification('复制失败，请手动选择复制', 'error');
+            });
+        });
+
+        // 提示帮助信息
+        document.getElementById('prompt-help').addEventListener('click', () => {
+            UIComponents.showNotification('系统提示是发送给AI的指令，会根据您填写的角色信息自动生成', 'info', 5000);
         });
         
         // ===== 头像上传 =====
@@ -392,6 +491,52 @@ const App = {
         });
     },
     
+    // 更新系统提示预览
+    _updateSystemPromptPreview: function() {
+        const description = document.getElementById('character-description').value.trim();
+        const speechStyle = document.getElementById('speech-style').value.trim();
+        const rules = document.getElementById('character-rules').value.trim();
+        const knowledge = document.getElementById('character-knowledge').value.trim();
+        
+        // 收集所有已选择的标签
+        const personalityTags = [];
+        document.querySelectorAll('#selected-personality-tags .selected-tag').forEach(tag => {
+            personalityTags.push(tag.dataset.value);
+        });
+        
+        let prompt = "";
+        
+        // 基本人设描述
+        if (description) {
+            prompt += description + "\n\n";
+        } else {
+            prompt += "你是一个有帮助的AI助手。\n\n";
+        }
+        
+        // 性格标签
+        if (personalityTags.length > 0) {
+            prompt += `性格特点: ${personalityTags.join('、')}\n\n`;
+        }
+        
+        // 说话风格
+        if (speechStyle) {
+            prompt += `说话风格示例:\n${speechStyle}\n\n`;
+        }
+        
+        // 专业知识
+        if (knowledge) {
+            prompt += `你特别擅长: ${knowledge}\n\n`;
+        }
+        
+        // 行为规则
+        if (rules) {
+            prompt += `行为规则:\n${rules}\n`;
+        }
+        
+        // 更新预览
+        document.getElementById('system-prompt-preview').textContent = prompt;
+    },
+    
     // 创建新会话
     createNewConversation: function() {
         const id = generateId();
@@ -526,7 +671,26 @@ const App = {
             ];
             
             // 构建完整的系统提示
-            const systemPrompt = `${character.systemPrompt}\n\n${character.rules}`;
+            let systemPrompt = '';
+            if (character.description) {
+                systemPrompt += character.description + "\n\n";
+            }
+            
+            if (character.personalityTags && character.personalityTags.length > 0) {
+                systemPrompt += `性格特点: ${character.personalityTags.join('、')}\n\n`;
+            }
+            
+            if (character.speechStyle) {
+                systemPrompt += `说话风格示例:\n${character.speechStyle}\n\n`;
+            }
+            
+            if (character.knowledge) {
+                systemPrompt += `你特别擅长: ${character.knowledge}\n\n`;
+            }
+            
+            if (character.rules) {
+                systemPrompt += `行为规则:\n${character.rules}\n`;
+            }
             
             // 调用AI服务
             const aiResponse = await AIService.sendMessage(
@@ -813,11 +977,20 @@ const App = {
     saveCharacterSettings: function() {
         const character = StorageService.getCharacter();
         
+        // 获取已选择的性格标签
+        const selectedTags = [];
+        document.querySelectorAll('#selected-personality-tags .selected-tag').forEach(tag => {
+            selectedTags.push(tag.dataset.value);
+        });
+        
         // 更新角色信息
         character.name = document.getElementById('character-name').value.trim() || 'AI助手';
         character.avatar = document.querySelector('#ai-avatar-preview img').src || 'https://via.placeholder.com/150';
-        character.systemPrompt = document.getElementById('system-prompt').value.trim() || '你是一个有帮助的AI助手。';
-        character.rules = document.getElementById('character-rules').value.trim() || '保持回答简洁友好。';
+        character.description = document.getElementById('character-description').value.trim() || '';
+        character.personalityTags = selectedTags;
+        character.speechStyle = document.getElementById('speech-style').value.trim() || '';
+        character.rules = document.getElementById('character-rules').value.trim() || '';
+        character.knowledge = document.getElementById('character-knowledge').value.trim() || '';
         
         // 保存角色信息
         StorageService.saveCharacter(character);
@@ -983,6 +1156,48 @@ const App = {
         };
         
         reader.readAsText(file);
+    },
+    
+    // 切换消息表情反应
+    toggleReaction: function(messageId, emoji) {
+        if (!this.currentConversation) return;
+        
+        // 查找消息
+        const message = this.currentConversation.messages.find(m => m.id === messageId);
+        if (!message) return;
+        
+        // 初始化反应对象
+        if (!message.reactions) {
+            message.reactions = {};
+        }
+        
+        // 切换反应状态
+        if (message.reactions[emoji]) {
+            message.reactions[emoji] -= 1;
+            if (message.reactions[emoji] <= 0) {
+                delete message.reactions[emoji];
+            }
+        } else {
+            message.reactions[emoji] = 1;
+        }
+        
+        // 保存会话
+        StorageService.saveConversation(this.currentConversation);
+        
+        // 更新UI
+        const messageElement = document.querySelector(`.message[data-id="${messageId}"]`);
+        if (messageElement) {
+            const reactionsContainer = messageElement.querySelector('.message-reactions');
+            reactionsContainer.innerHTML = UIComponents._renderReactions(message.reactions);
+            
+            // 重新添加事件监听器
+            messageElement.querySelectorAll('.reaction').forEach(reaction => {
+                reaction.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleReaction(messageId, reaction.dataset.emoji);
+                });
+            });
+        }
     }
 };
 

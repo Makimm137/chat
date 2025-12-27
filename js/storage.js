@@ -3,15 +3,17 @@ const STORAGE_KEYS = {
     CHARACTER: 'aiCharacter',
     CONVERSATIONS: 'conversations',
     CURRENT_CONVERSATION: 'currentConversationId',
-    API_CONFIG: 'apiConfig'
+    API_CONFIG: 'apiConfig',
+    USER_SETTINGS: 'userSettings',
+    APPEARANCE: 'appearance'
 };
 
 // 默认角色设置
 const DEFAULT_CHARACTER = {
-    name: 'AI Assistant',
+    name: 'AI助手',
     avatar: 'https://via.placeholder.com/150',
-    systemPrompt: 'You are a helpful AI assistant.',
-    rules: 'Be concise and friendly. Answer questions truthfully.',
+    systemPrompt: '你是一个有帮助的AI助手。',
+    rules: '保持回答简洁友好。诚实回答问题。',
     memories: []  // 全局记忆
 };
 
@@ -21,6 +23,20 @@ const DEFAULT_API_CONFIG = {
     apiKey: '',
     model: 'gpt-3.5-turbo',
     endpoint: ''
+};
+
+// 默认用户设置
+const DEFAULT_USER_SETTINGS = {
+    name: '我',
+    avatar: 'https://via.placeholder.com/150',
+    bio: ''
+};
+
+// 默认外观设置
+const DEFAULT_APPEARANCE = {
+    background: 'default',
+    customBackground: '',
+    theme: 'light'
 };
 
 // 存储服务对象
@@ -106,12 +122,36 @@ const StorageService = {
         localStorage.setItem(STORAGE_KEYS.API_CONFIG, JSON.stringify(config));
     },
     
+    // 获取用户设置
+    getUserSettings: function() {
+        const stored = localStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
+        return stored ? JSON.parse(stored) : DEFAULT_USER_SETTINGS;
+    },
+    
+    // 保存用户设置
+    saveUserSettings: function(settings) {
+        localStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(settings));
+    },
+    
+    // 获取外观设置
+    getAppearance: function() {
+        const stored = localStorage.getItem(STORAGE_KEYS.APPEARANCE);
+        return stored ? JSON.parse(stored) : DEFAULT_APPEARANCE;
+    },
+    
+    // 保存外观设置
+    saveAppearance: function(appearance) {
+        localStorage.setItem(STORAGE_KEYS.APPEARANCE, JSON.stringify(appearance));
+    },
+    
     // 导出所有数据
     exportData: function() {
         return {
             character: this.getCharacter(),
             conversations: this.getConversations(),
-            apiConfig: this.getApiConfig()
+            apiConfig: this.getApiConfig(),
+            userSettings: this.getUserSettings(),
+            appearance: this.getAppearance()
         };
     },
     
@@ -123,6 +163,8 @@ const StorageService = {
             if (data.character) this.saveCharacter(data.character);
             if (data.conversations) this.saveConversations(data.conversations);
             if (data.apiConfig) this.saveApiConfig(data.apiConfig);
+            if (data.userSettings) this.saveUserSettings(data.userSettings);
+            if (data.appearance) this.saveAppearance(data.appearance);
             
             // 设置当前会话ID
             if (data.conversations && data.conversations.length > 0) {
@@ -145,15 +187,29 @@ const StorageService = {
         
         return conversations.filter(conv => {
             // 搜索标题
-            if (conv.title.toLowerCase().includes(lowerSearch)) {
+            if (conv.title && conv.title.toLowerCase().includes(lowerSearch)) {
                 return true;
             }
             
             // 搜索消息内容
             return conv.messages.some(msg => 
-                msg.content.toLowerCase().includes(lowerSearch)
+                msg.content && msg.content.toLowerCase().includes(lowerSearch)
             );
+        });
+    },
+    
+    // 将图像转为Base64
+    imageToBase64: function(file) {
+        return new Promise((resolve, reject) => {
+            if (!file || !(file instanceof File)) {
+                reject(new Error('Invalid file'));
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
         });
     }
 };
-

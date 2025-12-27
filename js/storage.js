@@ -12,8 +12,11 @@ const STORAGE_KEYS = {
 const DEFAULT_CHARACTER = {
     name: 'AI助手',
     avatar: 'https://via.placeholder.com/150',
-    systemPrompt: '你是一个有帮助的AI助手。',
+    description: '你是一个有帮助的AI助手，愿意提供信息和支持。',
+    personalityTags: ['友好', '专业', '有帮助'],
+    speechStyle: '你好！我是你的AI助手，有什么我可以帮助你的吗？',
     rules: '保持回答简洁友好。诚实回答问题。',
+    knowledge: '通用知识',
     memories: []  // 全局记忆
 };
 

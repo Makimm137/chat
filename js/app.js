@@ -12,6 +12,7 @@ const App = {
     init: function() {
         this._loadInitialData();
         this._setupEventListeners();
+        this._setupMobileUI();
     },
     
     // 加载初始数据
@@ -19,6 +20,14 @@ const App = {
         // 加载角色信息
         const character = StorageService.getCharacter();
         UIComponents.updateCharacterUI(character);
+        
+        // 加载用户设置
+        const userSettings = StorageService.getUserSettings();
+        UIComponents.updateUserSettingsUI(userSettings);
+        
+        // 加载外观设置
+        const appearance = StorageService.getAppearance();
+        UIComponents.updateAppearanceUI(appearance);
         
         // 加载API设置
         const apiConfig = StorageService.getApiConfig();
@@ -39,6 +48,8 @@ const App = {
     
     // 设置事件监听器
     _setupEventListeners: function() {
+        // ===== 主要功能按钮 =====
+        
         // 新建会话按钮
         document.getElementById('new-conversation-btn').addEventListener('click', () => {
             this.createNewConversation();
@@ -60,11 +71,9 @@ const App = {
             UIComponents.updateTextareaHeight(e.target);
         });
         
-        // 消息输入框内容变化调整高度
+        // 消息输入框内容变化调整高度和启用/禁用发送按钮
         document.getElementById('message-input').addEventListener('input', (e) => {
             UIComponents.updateTextareaHeight(e.target);
-            
-            // 启用/禁用发送按钮
             document.getElementById('send-message-btn').disabled = !e.target.value.trim();
         });
         
@@ -75,20 +84,26 @@ const App = {
             UIComponents.renderConversations(conversations, this.currentConversation?.id);
         });
         
-        // 设置按钮
+        // ===== 设置面板 =====
+        
+        // 打开设置面板
         document.getElementById('settings-btn').addEventListener('click', () => {
             document.getElementById('settings-panel').classList.add('active');
         });
         
-        // 关闭设置按钮
+        // 关闭设置面板
         document.getElementById('close-settings-btn').addEventListener('click', () => {
             document.getElementById('settings-panel').classList.remove('active');
+        });
+        
+        // 移动端打开设置面板
+        document.getElementById('mobile-settings-toggle')?.addEventListener('click', () => {
+            document.getElementById('settings-panel').classList.add('active');
         });
         
         // 设置选项卡切换
         document.querySelectorAll('.tab-btn').forEach(button => {
             button.addEventListener('click', function() {
-                // 移除所有选项卡的active类
                 document.querySelectorAll('.tab-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
@@ -96,7 +111,6 @@ const App = {
                     tab.classList.remove('active');
                 });
                 
-                // 添加active类到当前选项卡
                 this.classList.add('active');
                 const tabId = this.dataset.tab;
                 document.getElementById(`${tabId}-tab`).classList.add('active');
@@ -113,25 +127,140 @@ const App = {
             this.saveApiSettings();
         });
         
+        // 保存外观设置
+        document.getElementById('save-appearance-btn').addEventListener('click', () => {
+            this.saveAppearanceSettings();
+        });
+        
         // 测试API连接
         document.getElementById('test-api-btn').addEventListener('click', async () => {
             this.testApiConnection();
         });
         
-        // 头像URL输入框变化
-        document.getElementById('character-avatar').addEventListener('input', (e) => {
-            document.querySelector('#avatar-preview img').src = e.target.value || 'https://via.placeholder.com/100';
+        // 显示/隐藏API密钥
+        document.getElementById('toggle-api-key').addEventListener('click', function() {
+            const apiKeyInput = document.getElementById('api-key');
+            const type = apiKeyInput.type === 'password' ? 'text' : 'password';
+            apiKeyInput.type = type;
+            this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
         });
         
         // API提供商切换
         document.getElementById('api-provider').addEventListener('change', (e) => {
             const endpointGroup = document.querySelector('.api-endpoint-group');
-            if (e.target.value === 'azure' || e.target.value === 'other') {
+            if (e.value === 'azure' || e.value === 'other') {
                 endpointGroup.style.display = 'block';
             } else {
                 endpointGroup.style.display = 'none';
             }
         });
+        
+        // ===== 头像上传 =====
+        
+        // AI头像上传按钮
+        document.getElementById('ai-avatar-upload-btn').addEventListener('click', () => {
+            document.getElementById('ai-avatar-file').click();
+        });
+        
+        // AI头像文件选择
+        document.getElementById('ai-avatar-file').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                try {
+                    const file = e.target.files[0];
+                    const base64Image = await StorageService.imageToBase64(file);
+                    
+                    document.querySelector('#ai-avatar-preview img').src = base64Image;
+                    document.getElementById('character-avatar').value = base64Image;
+                } catch (error) {
+                    console.error('Image conversion error:', error);
+                    UIComponents.showNotification('图片上传失败，请重试。', 'error');
+                }
+            }
+        });
+        
+        // 用户头像上传按钮
+        document.getElementById('user-avatar-upload-btn').addEventListener('click', () => {
+            document.getElementById('user-avatar-file').click();
+        });
+        
+        // 用户头像文件选择
+        document.getElementById('user-avatar-file').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                try {
+                    const file = e.target.files[0];
+                    const base64Image = await StorageService.imageToBase64(file);
+                    
+                    document.querySelector('#user-avatar-preview img').src = base64Image;
+                    document.getElementById('user-avatar-url').value = base64Image;
+                } catch (error) {
+                    console.error('Image conversion error:', error);
+                    UIComponents.showNotification('图片上传失败，请重试。', 'error');
+                }
+            }
+        });
+        
+        // 用户头像URL输入
+        document.getElementById('user-avatar-url').addEventListener('input', (e) => {
+            document.querySelector('#user-avatar-preview img').src = e.target.value || 'https://via.placeholder.com/100';
+        });
+        
+        // AI头像URL输入
+        document.getElementById('character-avatar').addEventListener('input', (e) => {
+            document.querySelector('#ai-avatar-preview img').src = e.target.value || 'https://via.placeholder.com/100';
+        });
+        
+        // ===== 聊天背景 =====
+        
+        // 背景选项点击
+        document.querySelectorAll('.background-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const bgType = this.dataset.bg;
+                
+                document.querySelectorAll('.background-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                
+                this.classList.add('selected');
+                
+                if (bgType === 'custom') {
+                    document.getElementById('bg-upload').click();
+                } else {
+                    document.getElementById('chat-area').setAttribute('data-bg', bgType);
+                }
+            });
+        });
+        
+        // 背景图片上传
+        document.getElementById('bg-upload').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                try {
+                    const file = e.target.files[0];
+                    const base64Image = await StorageService.imageToBase64(file);
+                    
+                    // 设置背景图片
+                    const chatArea = document.getElementById('chat-area');
+                    chatArea.setAttribute('data-bg', 'custom');
+                    chatArea.style.setProperty('--custom-bg', `url(${base64Image})`);
+                    
+                    // 更新自定义背景预览
+                    const customBgPreview = document.querySelector('.bg-custom');
+                    customBgPreview.style.backgroundImage = `url(${base64Image})`;
+                    customBgPreview.innerHTML = '';
+                    
+                    // 更新选中状态
+                    document.querySelectorAll('.background-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    document.querySelector('.background-option[data-bg="custom"]').classList.add('selected');
+                    
+                } catch (error) {
+                    console.error('Background image conversion error:', error);
+                    UIComponents.showNotification('背景图片上传失败，请重试。', 'error');
+                }
+            }
+        });
+        
+        // ===== 记忆功能 =====
         
         // 生成记忆按钮
         document.getElementById('generate-memory-btn').addEventListener('click', () => {
@@ -142,6 +271,8 @@ const App = {
         document.getElementById('add-memory-btn').addEventListener('click', () => {
             this.addNewMemory();
         });
+        
+        // ===== 导入导出 =====
         
         // 导出数据按钮
         document.getElementById('export-data-btn').addEventListener('click', () => {
@@ -159,6 +290,106 @@ const App = {
                 this.importData(e.target.files[0]);
             }
         });
+        
+        // ===== 用户资料 =====
+        
+        // 打开用户资料弹窗
+        document.getElementById('user-profile-btn').addEventListener('click', () => {
+            document.getElementById('user-profile-modal').classList.add('active');
+            
+            // 加载当前用户设置
+            const userSettings = StorageService.getUserSettings();
+            document.getElementById('profile-name').value = userSettings.name || '';
+            document.getElementById('profile-bio').value = userSettings.bio || '';
+            document.getElementById('profile-avatar-img').src = userSettings.avatar || 'https://via.placeholder.com/120';
+        });
+        
+        // 关闭用户资料弹窗
+        document.getElementById('close-profile-modal').addEventListener('click', () => {
+            document.getElementById('user-profile-modal').classList.remove('active');
+        });
+        
+        document.getElementById('cancel-profile').addEventListener('click', () => {
+            document.getElementById('user-profile-modal').classList.remove('active');
+        });
+        
+        // 保存用户资料
+        document.getElementById('save-profile').addEventListener('click', () => {
+            const name = document.getElementById('profile-name').value.trim();
+            const bio = document.getElementById('profile-bio').value.trim();
+            const avatar = document.getElementById('profile-avatar-img').src;
+            
+            const userSettings = {
+                ...StorageService.getUserSettings(),
+                name: name || '我',
+                bio: bio,
+                avatar: avatar
+            };
+            
+            StorageService.saveUserSettings(userSettings);
+            UIComponents.updateUserSettingsUI(userSettings);
+            UIComponents.showNotification('用户资料已保存');
+            
+            document.getElementById('user-profile-modal').classList.remove('active');
+            
+            // 重新渲染当前会话的消息（以更新用户头像）
+            if (this.currentConversation) {
+                UIComponents.renderMessages(this.currentConversation.messages, StorageService.getCharacter());
+            }
+        });
+        
+        // 编辑用户头像
+        document.getElementById('edit-profile-avatar').addEventListener('click', () => {
+            document.getElementById('profile-avatar-file').click();
+        });
+        
+        // 用户头像文件选择（资料弹窗）
+        document.getElementById('profile-avatar-file').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                try {
+                    const file = e.target.files[0];
+                    const base64Image = await StorageService.imageToBase64(file);
+                    
+                    document.getElementById('profile-avatar-img').src = base64Image;
+                } catch (error) {
+                    console.error('Image conversion error:', error);
+                    UIComponents.showNotification('图片上传失败，请重试。', 'error');
+                }
+            }
+        });
+    },
+    
+    // 设置移动端UI
+    _setupMobileUI: function() {
+        // 移动端侧边栏切换
+        document.getElementById('mobile-sidebar-toggle')?.addEventListener('click', function() {
+            document.getElementById('sidebar').classList.add('active');
+        });
+        
+        // 点击外部关闭侧边栏和设置面板
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768) {
+                const sidebar = document.getElementById('sidebar');
+                const settingsPanel = document.getElementById('settings-panel');
+                const mobileToggle = document.getElementById('mobile-sidebar-toggle');
+                
+                if (sidebar.classList.contains('active') && 
+                    !sidebar.contains(e.target) && 
+                    e.target !== mobileToggle &&
+                    !mobileToggle.contains(e.target)) {
+                    sidebar.classList.remove('active');
+                }
+                
+                // 点击外部关闭设置面板
+                const settingsToggle = document.getElementById('mobile-settings-toggle');
+                if (settingsPanel.classList.contains('active') && 
+                    !settingsPanel.contains(e.target) && 
+                    e.target !== settingsToggle &&
+                    !settingsToggle.contains(e.target)) {
+                    settingsPanel.classList.remove('active');
+                }
+            }
+        });
     },
     
     // 创建新会话
@@ -166,7 +397,7 @@ const App = {
         const id = generateId();
         const newConversation = {
             id: id,
-            title: 'New Conversation',
+            title: '新对话',
             messages: [],
             memories: [],
             createdAt: Date.now(),
@@ -184,14 +415,16 @@ const App = {
         UIComponents.renderMessages([], StorageService.getCharacter());
         
         // 更新会话标题
-        document.getElementById('current-conversation-title').textContent = 'New Conversation';
+        document.getElementById('current-conversation-title').textContent = StorageService.getCharacter().name;
         
         // 清空输入框
         document.getElementById('message-input').value = '';
+        document.getElementById('message-input').style.height = 'auto';
         document.getElementById('send-message-btn').disabled = true;
         
         // 更新记忆面板
-        UIComponents.renderMemories([]);
+        const character = StorageService.getCharacter();
+        UIComponents.renderMemories(character.memories);
         
         // 聚焦输入框
         document.getElementById('message-input').focus();
@@ -211,7 +444,8 @@ const App = {
         UIComponents.renderConversations(StorageService.getConversations(), id);
         
         // 更新会话标题
-        document.getElementById('current-conversation-title').textContent = conversation.title || 'Conversation';
+        document.getElementById('current-conversation-title').textContent = 
+            conversation.title || character.name || 'AI助手';
         
         // 更新记忆面板
         const allMemories = [...character.memories, ...conversation.memories];
@@ -252,7 +486,8 @@ const App = {
             id: generateId(),
             role: 'user',
             content: messageText,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            isRead: false
         };
         
         // 清空并重置输入框
@@ -308,13 +543,18 @@ const App = {
                 timestamp: Date.now()
             };
             
+            // 将用户消息标记为已读
+            userMessage.isRead = true;
+            
             // 更新会话
+            this.currentConversation.messages[this.currentConversation.messages.length - 1] = userMessage;
             this.currentConversation.messages.push(aiMessage);
             this.currentConversation.updatedAt = Date.now();
             StorageService.saveConversation(this.currentConversation);
             
             // 更新UI
             UIComponents.renderMessages(this.currentConversation.messages, character);
+            UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
             
             // 每隔10条消息自动生成一次记忆
             if (this.currentConversation.messages.length % 10 === 0 && this.currentConversation.messages.length >= 10) {
@@ -328,7 +568,7 @@ const App = {
             const errorMessage = {
                 id: generateId(),
                 role: 'system',
-                content: `Error: ${error.message || 'Failed to get AI response'}`,
+                content: `错误: ${error.message || '无法获取AI响应'}`,
                 timestamp: Date.now()
             };
             
@@ -337,9 +577,10 @@ const App = {
             
             // 更新UI
             UIComponents.renderMessages(this.currentConversation.messages, character);
+            UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
             
             // 显示错误通知
-            UIComponents.showNotification('Failed to get AI response. Check console for details.', 'error');
+            UIComponents.showNotification('无法获取AI响应，请检查API设置。', 'error');
             
         } finally {
             // 移除加载中指示器
@@ -351,7 +592,7 @@ const App = {
     // 生成记忆
     generateMemory: async function() {
         if (!this.currentConversation || this.currentConversation.messages.length < 2) {
-            UIComponents.showNotification('Not enough messages to generate memory.', 'error');
+            UIComponents.showNotification('对话内容太少，无法生成有意义的记忆。', 'error');
             return;
         }
         
@@ -359,7 +600,7 @@ const App = {
         const processingMessage = {
             id: generateId(),
             role: 'system',
-            content: 'Generating memory from recent conversation...',
+            content: '正在从最近的对话生成记忆...',
             timestamp: Date.now()
         };
         
@@ -388,8 +629,8 @@ const App = {
                 
                 // 更新系统消息
                 const lastMessage = this.currentConversation.messages[this.currentConversation.messages.length - 1];
-                if (lastMessage.role === 'system' && lastMessage.content.includes('Generating memory')) {
-                    lastMessage.content = `Memory created: "${memorySummary}"`;
+                if (lastMessage.role === 'system' && lastMessage.content.includes('正在从最近的对话生成记忆')) {
+                    lastMessage.content = `已创建记忆: "${memorySummary}"`;
                     lastMessage.timestamp = Date.now();
                 }
                 
@@ -403,9 +644,9 @@ const App = {
                 const allMemories = [...character.memories, ...this.currentConversation.memories];
                 UIComponents.renderMemories(allMemories);
                 
-                UIComponents.showNotification('Memory generated successfully.');
+                UIComponents.showNotification('记忆生成成功');
             } else {
-                throw new Error('Failed to generate memory summary');
+                throw new Error('无法生成记忆摘要');
             }
             
         } catch (error) {
@@ -413,8 +654,8 @@ const App = {
             
             // 更新错误消息
             const lastMessage = this.currentConversation.messages[this.currentConversation.messages.length - 1];
-            if (lastMessage.role === 'system' && lastMessage.content.includes('Generating memory')) {
-                lastMessage.content = `Memory generation failed: ${error.message}`;
+            if (lastMessage.role === 'system' && lastMessage.content.includes('正在从最近的对话生成记忆')) {
+                lastMessage.content = `记忆生成失败: ${error.message}`;
                 lastMessage.timestamp = Date.now();
             }
             
@@ -424,7 +665,7 @@ const App = {
             // 更新UI
             UIComponents.renderMessages(this.currentConversation.messages, character);
             
-            UIComponents.showNotification('Failed to generate memory.', 'error');
+            UIComponents.showNotification('记忆生成失败，请重试。', 'error');
         }
     },
     
@@ -434,7 +675,7 @@ const App = {
         const isGlobal = document.getElementById('memory-is-global').checked;
         
         if (!memoryContent) {
-            UIComponents.showNotification('Please enter memory content.', 'error');
+            UIComponents.showNotification('请输入记忆内容。', 'error');
             return;
         }
         
@@ -453,7 +694,7 @@ const App = {
             StorageService.saveCharacter(character);
         } else {
             if (!this.currentConversation) {
-                UIComponents.showNotification('Please select or create a conversation first.', 'error');
+                UIComponents.showNotification('请先选择或创建一个会话。', 'error');
                 return;
             }
             
@@ -472,14 +713,14 @@ const App = {
             : character.memories;
         
         UIComponents.renderMemories(allMemories);
-        UIComponents.showNotification('Memory added successfully.');
+        UIComponents.showNotification('记忆添加成功');
         
         // 添加系统消息到当前会话
         if (this.currentConversation) {
             const systemMessage = {
                 id: generateId(),
                 role: 'system',
-                content: `New ${isGlobal ? 'global' : 'conversation'} memory added: "${memoryContent}"`,
+                content: `已添加${isGlobal ? '全局' : '会话'}记忆: "${memoryContent}"`,
                 timestamp: Date.now()
             };
             
@@ -514,7 +755,7 @@ const App = {
                 const systemMessage = {
                     id: generateId(),
                     role: 'system',
-                    content: 'A memory was deleted from this conversation.',
+                    content: '已从当前会话删除一条记忆',
                     timestamp: Date.now()
                 };
                 
@@ -532,7 +773,7 @@ const App = {
             : character.memories;
         
         UIComponents.renderMemories(allMemories);
-        UIComponents.showNotification('Memory deleted successfully.');
+        UIComponents.showNotification('记忆已删除');
     },
     
     // 编辑记忆
@@ -564,7 +805,7 @@ const App = {
             // 删除原记忆
             this.deleteMemory(id);
             
-            UIComponents.showNotification('Edit the memory and click "Add Memory" to save changes.');
+            UIComponents.showNotification('请编辑记忆内容后点击"添加记忆"保存更改');
         }
     },
     
@@ -573,10 +814,10 @@ const App = {
         const character = StorageService.getCharacter();
         
         // 更新角色信息
-        character.name = document.getElementById('character-name').value.trim() || 'AI Assistant';
-        character.avatar = document.getElementById('character-avatar').value.trim() || 'https://via.placeholder.com/150';
-        character.systemPrompt = document.getElementById('system-prompt').value.trim() || 'You are a helpful AI assistant.';
-        character.rules = document.getElementById('character-rules').value.trim() || 'Be concise and friendly.';
+        character.name = document.getElementById('character-name').value.trim() || 'AI助手';
+        character.avatar = document.querySelector('#ai-avatar-preview img').src || 'https://via.placeholder.com/150';
+        character.systemPrompt = document.getElementById('system-prompt').value.trim() || '你是一个有帮助的AI助手。';
+        character.rules = document.getElementById('character-rules').value.trim() || '保持回答简洁友好。';
         
         // 保存角色信息
         StorageService.saveCharacter(character);
@@ -589,7 +830,18 @@ const App = {
             UIComponents.renderMessages(this.currentConversation.messages, character);
         }
         
-        UIComponents.showNotification('Character settings saved successfully.');
+        // 更新会话列表（更新头像）
+        UIComponents.renderConversations(
+            StorageService.getConversations(), 
+            this.currentConversation?.id
+        );
+        
+        UIComponents.showNotification('角色设置已保存');
+        
+        // 关闭设置面板
+        if (window.innerWidth <= 768) {
+            document.getElementById('settings-panel').classList.remove('active');
+        }
     },
     
     // 保存API设置
@@ -611,7 +863,58 @@ const App = {
         // 保存API配置
         StorageService.saveApiConfig(apiConfig);
         
-        UIComponents.showNotification('API settings saved successfully.');
+        UIComponents.showNotification('API设置已保存');
+        
+        // 关闭设置面板
+        if (window.innerWidth <= 768) {
+            document.getElementById('settings-panel').classList.remove('active');
+        }
+    },
+    
+    // 保存外观设置
+    saveAppearanceSettings: function() {
+        // 获取当前外观设置
+        const appearance = StorageService.getAppearance();
+        
+        // 更新用户设置
+        const userSettings = StorageService.getUserSettings();
+        userSettings.name = document.getElementById('user-name').value.trim() || '我';
+        userSettings.avatar = document.querySelector('#user-avatar-preview img').src;
+        
+        // 更新背景设置
+        const selectedBgOption = document.querySelector('.background-option.selected');
+        appearance.background = selectedBgOption ? selectedBgOption.dataset.bg : 'default';
+        
+        // 如果是自定义背景，保存背景图片
+        if (appearance.background === 'custom') {
+            const customBgStyle = document.querySelector('.bg-custom').style.backgroundImage;
+            if (customBgStyle) {
+                const urlMatch = customBgStyle.match(/url\(['"]?([^'"]+)['"]?\)/);
+                if (urlMatch && urlMatch[1]) {
+                    appearance.customBackground = urlMatch[1];
+                }
+            }
+        }
+        
+        // 保存设置
+        StorageService.saveUserSettings(userSettings);
+        StorageService.saveAppearance(appearance);
+        
+        // 更新UI
+        UIComponents.updateUserSettingsUI(userSettings);
+        UIComponents.updateAppearanceUI(appearance);
+        
+        // 如果有当前会话，重新渲染消息（以更新用户头像）
+        if (this.currentConversation) {
+            UIComponents.renderMessages(this.currentConversation.messages, StorageService.getCharacter());
+        }
+        
+        UIComponents.showNotification('外观设置已保存');
+        
+        // 关闭设置面板
+        if (window.innerWidth <= 768) {
+            document.getElementById('settings-panel').classList.remove('active');
+        }
     },
     
     // 测试API连接
@@ -619,19 +922,19 @@ const App = {
         // 先保存设置
         this.saveApiSettings();
         
-        UIComponents.showNotification('Testing API connection...');
+        UIComponents.showNotification('正在测试API连接...');
         
         try {
             const result = await AIService.testConnection();
             
             if (result.success) {
-                UIComponents.showNotification('Connection successful!');
+                UIComponents.showNotification('连接成功！API响应正常。', 'success');
             } else {
-                UIComponents.showNotification(`Connection failed: ${result.message}`, 'error');
+                UIComponents.showNotification(`连接失败：${result.message}`, 'error');
             }
         } catch (error) {
             console.error('API test error:', error);
-            UIComponents.showNotification(`Connection test error: ${error.message}`, 'error');
+            UIComponents.showNotification(`连接测试错误: ${error.message}`, 'error');
         }
     },
     
@@ -654,7 +957,7 @@ const App = {
             URL.revokeObjectURL(url);
         }, 100);
         
-        UIComponents.showNotification('Data exported successfully.');
+        UIComponents.showNotification('数据导出成功');
     },
     
     // 导入数据
@@ -669,13 +972,13 @@ const App = {
                 if (success) {
                     // 重新加载数据
                     this._loadInitialData();
-                    UIComponents.showNotification('Data imported successfully.');
+                    UIComponents.showNotification('数据导入成功');
                 } else {
-                    throw new Error('Invalid data format');
+                    throw new Error('数据格式无效');
                 }
             } catch (error) {
                 console.error('Import error:', error);
-                UIComponents.showNotification(`Import failed: ${error.message}`, 'error');
+                UIComponents.showNotification(`导入失败: ${error.message}`, 'error');
             }
         };
         
@@ -687,4 +990,3 @@ const App = {
 document.addEventListener('DOMContentLoaded', function() {
     App.init();
 });
-

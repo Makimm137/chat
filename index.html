@@ -3,24 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Character Chat</title>
+    <title>AI Chat</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- 添加FontAwesome图标库 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- 移动端菜单切换按钮 -->
+    <div class="mobile-toggle" id="mobile-menu-toggle">
+        <i class="fas fa-bars"></i>
+    </div>
+
     <div class="app-container">
         <!-- 左侧侧边栏 -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="character-info">
-                    <img id="character-avatar-sidebar" src="https://via.placeholder.com/40" alt="Character Avatar">
-                    <h2 id="character-name-sidebar">AI Assistant</h2>
-                </div>
+                <div class="logo">AI Chat</div>
                 <div class="search-box">
-                    <input type="text" id="search-conversations" placeholder="Search conversations...">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-conversations" placeholder="搜索...">
                 </div>
-                <button id="new-conversation-btn" class="btn primary-btn">New Chat</button>
+                <button id="new-conversation-btn" class="btn primary-btn">
+                    <i class="fas fa-plus"></i> 新聊天
+                </button>
             </div>
             
             <div class="conversations-list" id="conversations-list">
@@ -28,142 +33,277 @@
             </div>
             
             <div class="sidebar-footer">
-                <button id="settings-btn" class="btn"><i class="fas fa-cog"></i> Settings</button>
-                <button id="export-data-btn" class="btn"><i class="fas fa-download"></i> Export</button>
-                <button id="import-data-btn" class="btn"><i class="fas fa-upload"></i> Import</button>
+                <button id="settings-btn" class="btn icon-btn"><i class="fas fa-cog"></i></button>
+                <button id="export-data-btn" class="btn icon-btn"><i class="fas fa-download"></i></button>
+                <button id="import-data-btn" class="btn icon-btn"><i class="fas fa-upload"></i></button>
                 <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                <button id="user-profile-btn" class="btn icon-btn"><i class="fas fa-user"></i></button>
             </div>
         </div>
 
         <!-- 中间主聊天区 -->
-        <div class="chat-area">
+        <div class="chat-area" id="chat-area">
             <div class="chat-header">
-                <h3 id="current-conversation-title">Select a conversation</h3>
-                <button id="generate-memory-btn" class="btn">Generate Memory</button>
+                <div class="chat-header-left">
+                    <button id="mobile-sidebar-toggle" class="btn icon-btn mobile-only">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <img id="ai-avatar-header" class="avatar-small" src="https://via.placeholder.com/40" alt="AI">
+                    <div class="chat-title-area">
+                        <h3 id="current-conversation-title">选择一个会话</h3>
+                        <div class="status-indicator">
+                            <span class="status-dot online"></span>
+                            <span class="status-text">在线</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-header-right">
+                    <button id="generate-memory-btn" class="btn outline-btn">
+                        <i class="fas fa-brain"></i> 生成记忆
+                    </button>
+                    <button id="mobile-settings-toggle" class="btn icon-btn mobile-only">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                </div>
             </div>
             
             <div class="messages-container" id="messages-container">
                 <div class="empty-chat" id="empty-chat">
-                    <h3>Start a conversation</h3>
-                    <p>Select a conversation from the sidebar or create a new one.</p>
+                    <div class="empty-chat-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h3>开始一个新对话</h3>
+                    <p>从侧栏选择一个会话或创建新的会话</p>
                 </div>
                 <!-- 聊天消息将动态插入这里 -->
             </div>
             
             <div class="message-input-container">
-                <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
-                <button id="send-message-btn" class="btn primary-btn" disabled>
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+                <div class="input-wrapper">
+                    <textarea id="message-input" placeholder="输入消息..." rows="1"></textarea>
+                    <button id="send-message-btn" class="btn circle-btn" disabled>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- 右侧设置面板 -->
         <div class="settings-panel" id="settings-panel">
             <div class="settings-header">
-                <h2>Settings</h2>
-                <button id="close-settings-btn" class="btn close-btn">&times;</button>
+                <h2>设置</h2>
+                <button id="close-settings-btn" class="btn icon-btn">&times;</button>
             </div>
             
             <div class="settings-tabs">
-                <button class="tab-btn active" data-tab="character">Character</button>
+                <button class="tab-btn active" data-tab="character">角色</button>
                 <button class="tab-btn" data-tab="api">API</button>
-                <button class="tab-btn" data-tab="memory">Memories</button>
+                <button class="tab-btn" data-tab="memory">记忆</button>
+                <button class="tab-btn" data-tab="appearance">外观</button>
             </div>
             
             <div class="settings-content">
                 <!-- 角色设置 -->
                 <div class="settings-tab active" id="character-tab">
-                    <h3>Character Settings</h3>
+                    <h3>角色设置</h3>
                     
                     <div class="form-group">
-                        <label for="character-name">Name:</label>
-                        <input type="text" id="character-name" placeholder="Character name">
+                        <label for="character-name">名称:</label>
+                        <input type="text" id="character-name" placeholder="AI 助手">
                     </div>
                     
                     <div class="form-group">
-                        <label for="character-avatar">Avatar URL:</label>
-                        <input type="text" id="character-avatar" placeholder="https://example.com/avatar.jpg">
-                        <div id="avatar-preview" class="avatar-preview">
-                            <img src="https://via.placeholder.com/100" alt="Preview">
+                        <label>头像:</label>
+                        <div class="avatar-upload">
+                            <div class="avatar-preview" id="ai-avatar-preview">
+                                <img src="https://via.placeholder.com/100" alt="Preview">
+                            </div>
+                            <div class="avatar-actions">
+                                <button class="btn outline-btn" id="ai-avatar-upload-btn">
+                                    <i class="fas fa-upload"></i> 上传图片
+                                </button>
+                                <input type="file" id="ai-avatar-file" accept="image/*" style="display: none;">
+                                <span>或</span>
+                                <input type="text" id="character-avatar" placeholder="输入图片URL">
+                            </div>
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="system-prompt">System Prompt:</label>
-                        <textarea id="system-prompt" rows="5" placeholder="Describe the character's identity, personality, and background..."></textarea>
+                        <label for="system-prompt">系统提示:</label>
+                        <textarea id="system-prompt" rows="5" placeholder="描述角色的身份、性格和背景..."></textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label for="character-rules">Rules:</label>
-                        <textarea id="character-rules" rows="5" placeholder="Define behavioral rules, limitations, and style guidelines..."></textarea>
+                        <label for="character-rules">行为规则:</label>
+                        <textarea id="character-rules" rows="5" placeholder="定义角色的行为规则、限制和风格指南..."></textarea>
                     </div>
                     
-                    <button id="save-character-btn" class="btn primary-btn">Save Character</button>
+                    <button id="save-character-btn" class="btn primary-btn">保存角色</button>
                 </div>
                 
                 <!-- API设置 -->
                 <div class="settings-tab" id="api-tab">
-                    <h3>API Settings</h3>
+                    <h3>API 设置</h3>
                     
                     <div class="form-group">
-                        <label for="api-provider">Provider:</label>
+                        <label for="api-provider">提供商:</label>
                         <select id="api-provider">
                             <option value="openai">OpenAI</option>
                             <option value="azure">Azure OpenAI</option>
                             <option value="anthropic">Anthropic (Claude)</option>
                             <option value="gemini">Google Gemini</option>
-                            <option value="other">Other</option>
+                            <option value="other">其他</option>
                         </select>
                     </div>
                     
                     <div class="form-group">
                         <label for="api-key">API Key:</label>
-                        <input type="password" id="api-key" placeholder="Enter your API key">
-                        <p class="help-text">Your API key is stored locally and never sent to our servers.</p>
+                        <div class="input-with-action">
+                            <input type="password" id="api-key" placeholder="输入您的 API Key">
+                            <button class="btn icon-btn toggle-password" id="toggle-api-key">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <p class="help-text">您的 API 密钥将安全存储在本地，不会发送到我们的服务器。</p>
                     </div>
                     
                     <div class="form-group">
-                        <label for="api-model">Model:</label>
-                        <input type="text" id="api-model" placeholder="e.g. gpt-3.5-turbo, gpt-4">
+                        <label for="api-model">模型:</label>
+                        <input type="text" id="api-model" placeholder="例如: gpt-3.5-turbo, gpt-4">
                     </div>
                     
                     <div class="form-group api-endpoint-group" style="display: none;">
-                        <label for="api-endpoint">API Endpoint:</label>
+                        <label for="api-endpoint">API 端点:</label>
                         <input type="text" id="api-endpoint" placeholder="https://your-endpoint.com/v1/chat/completions">
                     </div>
                     
-                    <button id="save-api-btn" class="btn primary-btn">Save API Settings</button>
-                    <button id="test-api-btn" class="btn">Test Connection</button>
+                    <div class="button-group">
+                        <button id="save-api-btn" class="btn primary-btn">保存设置</button>
+                        <button id="test-api-btn" class="btn outline-btn">测试连接</button>
+                    </div>
                 </div>
                 
                 <!-- 记忆管理 -->
                 <div class="settings-tab" id="memory-tab">
-                    <h3>Memory Management</h3>
+                    <h3>记忆管理</h3>
                     
                     <div class="form-group">
-                        <label>Current Memories:</label>
+                        <label>当前记忆:</label>
                         <div id="memories-list" class="memories-list">
                             <!-- 记忆列表将动态插入这里 -->
-                            <div class="empty-memories">No memories yet</div>
+                            <div class="empty-memories">暂无记忆</div>
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="new-memory">Add New Memory:</label>
-                        <textarea id="new-memory" rows="3" placeholder="Enter a new memory..."></textarea>
+                        <label for="new-memory">添加新记忆:</label>
+                        <textarea id="new-memory" rows="3" placeholder="输入一条新记忆..."></textarea>
                         <div class="memory-options">
-                            <label>
+                            <label class="checkbox-label">
                                 <input type="checkbox" id="memory-is-global">
-                                Global Memory (available in all conversations)
+                                <span class="checkmark"></span>
+                                全局记忆 (所有会话共享)
                             </label>
                         </div>
-                        <button id="add-memory-btn" class="btn primary-btn">Add Memory</button>
+                        <button id="add-memory-btn" class="btn primary-btn">添加记忆</button>
                     </div>
+                </div>
+
+                <!-- 外观设置 -->
+                <div class="settings-tab" id="appearance-tab">
+                    <h3>外观设置</h3>
+                    
+                    <div class="form-group">
+                        <label for="user-name">用户名称:</label>
+                        <input type="text" id="user-name" placeholder="您的名称">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>用户头像:</label>
+                        <div class="avatar-upload">
+                            <div class="avatar-preview" id="user-avatar-preview">
+                                <img src="https://via.placeholder.com/100" alt="Preview">
+                            </div>
+                            <div class="avatar-actions">
+                                <button class="btn outline-btn" id="user-avatar-upload-btn">
+                                    <i class="fas fa-upload"></i> 上传图片
+                                </button>
+                                <input type="file" id="user-avatar-file" accept="image/*" style="display: none;">
+                                <span>或</span>
+                                <input type="text" id="user-avatar-url" placeholder="输入图片URL">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>聊天背景:</label>
+                        <div class="background-options">
+                            <div class="background-option selected" data-bg="default">
+                                <div class="bg-preview bg-default"></div>
+                                <span>默认</span>
+                            </div>
+                            <div class="background-option" data-bg="light">
+                                <div class="bg-preview bg-light"></div>
+                                <span>浅色</span>
+                            </div>
+                            <div class="background-option" data-bg="dark">
+                                <div class="bg-preview bg-dark"></div>
+                                <span>深色</span>
+                            </div>
+                            <div class="background-option" data-bg="gradient">
+                                <div class="bg-preview bg-gradient"></div>
+                                <span>渐变</span>
+                            </div>
+                            <div class="background-option" data-bg="custom">
+                                <div class="bg-preview bg-custom">
+                                    <i class="fas fa-upload"></i>
+                                </div>
+                                <span>自定义</span>
+                                <input type="file" id="bg-upload" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="save-appearance-btn" class="btn primary-btn">保存外观设置</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 用户资料弹窗 -->
+        <div class="modal" id="user-profile-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>用户资料</h3>
+                    <button class="btn icon-btn" id="close-profile-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="profile-avatar">
+                        <img id="profile-avatar-img" src="https://via.placeholder.com/120" alt="用户头像">
+                        <button class="btn edit-avatar-btn" id="edit-profile-avatar">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <input type="file" id="profile-avatar-file" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-name">名称</label>
+                        <input type="text" id="profile-name" placeholder="您的名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-bio">个人简介</label>
+                        <textarea id="profile-bio" rows="3" placeholder="关于您自己的简介"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn outline-btn" id="cancel-profile">取消</button>
+                    <button class="btn primary-btn" id="save-profile">保存</button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- 通知容器 -->
+    <div class="notifications-container" id="notifications-container"></div>
 
     <!-- 导入JavaScript文件 -->
     <script src="js/storage.js"></script>
@@ -172,4 +312,3 @@
     <script src="js/app.js"></script>
 </body>
 </html>
-

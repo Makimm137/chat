@@ -447,9 +447,37 @@ input:focus, textarea:focus, select:focus {
     background-color: #121212;
 }
 
-.chat-area[data-bg="gradient"]::before {
-    background: linear-gradient(135deg, #6e8efb, #a777e3);
-    opacity: 0.05;
+.chat-area[data-bg="gradient1"]::before {
+    background: linear-gradient(135deg, #6e8efb, #5d9fff);
+    opacity: 0.07;
+}
+
+.chat-area[data-bg="gradient2"]::before {
+    background: linear-gradient(135deg, #a777e3, #8e54e9);
+    opacity: 0.07;
+}
+
+.chat-area[data-bg="gradient3"]::before {
+    background: linear-gradient(135deg, #ff9a9e, #fecfef);
+    opacity: 0.07;
+}
+
+.chat-area[data-bg="pattern1"]::before {
+    background-image: url('data:image/svg+xml;utf8,<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="%23f0f0f0"/><rect x="10" y="10" width="10" height="10" fill="%23f0f0f0"/></svg>');
+    background-size: 20px 20px;
+    opacity: 0.3;
+}
+
+.chat-area[data-bg="pattern2"]::before {
+    background-image: url('data:image/svg+xml;utf8,<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="2" fill="%23f0f0f0"/></svg>');
+    background-size: 20px 20px;
+    opacity: 0.3;
+}
+
+.chat-area[data-bg="pattern3"]::before {
+    background-image: url('data:image/svg+xml;utf8,<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M0 20 L20 0 L40 20 L20 40 Z" fill="none" stroke="%23f0f0f0" stroke-width="1"/></svg>');
+    background-size: 40px 40px;
+    opacity: 0.3;
 }
 
 .chat-area[data-bg="custom"]::before {
@@ -658,6 +686,91 @@ input:focus, textarea:focus, select:focus {
     font-family: monospace;
 }
 
+/* 表情反应样式 */
+.message-reactions {
+    min-height: 0;
+    margin-top: 4px;
+}
+
+.reactions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.reaction {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.reaction:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.reaction-toolbar {
+    display: flex;
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.2s ease;
+    padding: 4px 0;
+    gap: 2px;
+}
+
+.message:hover .reaction-toolbar {
+    visibility: visible;
+    opacity: 1;
+}
+
+.reaction-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 4px;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.reaction-btn:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.more-reactions {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* 表情选择器 */
+.emoji-picker {
+    position: absolute;
+    background-color: var(--bg-white);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    z-index: 1000;
+    max-width: 250px;
+}
+
+.emoji-option {
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    padding: 2px;
+}
+
+.emoji-option:hover {
+    transform: scale(1.2);
+}
+
 /* 消息输入区域 */
 .message-input-container {
     padding: 16px;
@@ -841,8 +954,34 @@ input:focus, textarea:focus, select:focus {
     background-color: #121212;
 }
 
-.bg-gradient {
-    background: linear-gradient(135deg, #6e8efb, #a777e3);
+.bg-gradient1 {
+    background: linear-gradient(135deg, #6e8efb, #5d9fff);
+}
+
+.bg-gradient2 {
+    background: linear-gradient(135deg, #a777e3, #8e54e9);
+}
+
+.bg-gradient3 {
+    background: linear-gradient(135deg, #ff9a9e, #fecfef);
+}
+
+.bg-pattern1 {
+    background-image: url('data:image/svg+xml;utf8,<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="%23f0f0f0"/><rect x="10" y="10" width="10" height="10" fill="%23f0f0f0"/></svg>');
+    background-size: 20px 20px;
+    background-color: var(--bg-color);
+}
+
+.bg-pattern2 {
+    background-image: url('data:image/svg+xml;utf8,<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="2" fill="%23f0f0f0"/></svg>');
+    background-size: 20px 20px;
+    background-color: var(--bg-color);
+}
+
+.bg-pattern3 {
+    background-image: url('data:image/svg+xml;utf8,<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M0 20 L20 0 L40 20 L20 40 Z" fill="none" stroke="%23f0f0f0" stroke-width="1"/></svg>');
+    background-size: 40px 40px;
+    background-color: var(--bg-color);
 }
 
 .bg-custom {
@@ -1170,4 +1309,130 @@ input:focus, textarea:focus, select:focus {
         width: 80px;
         height: 80px;
     }
+}
+
+/* 标签选择器样式 */
+.tags-container {
+    margin-top: 10px;
+}
+
+.tags-selection {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.tag {
+    display: inline-block;
+    padding: 6px 12px;
+    background-color: var(--light-gray);
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tag:hover {
+    background-color: rgba(0, 149, 246, 0.1);
+}
+
+.tag.selected {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.selected-tags-container {
+    margin-top: 12px;
+}
+
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 12px;
+    min-height: 30px;
+}
+
+.selected-tag {
+    display: flex;
+    align-items: center;
+    padding: 4px 10px;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 16px;
+    font-size: 12px;
+}
+
+.selected-tag .remove-tag {
+    margin-left: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.selected-tag.custom {
+    background-color: #9c27b0;
+}
+
+#custom-tag-input {
+    width: calc(100% - 80px);
+    margin-right: 8px;
+}
+
+.small-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* 系统提示预览 */
+.system-prompt-preview {
+    margin-top: 24px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    background-color: var(--bg-color);
+}
+
+.system-prompt-preview h4 {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.help-icon {
+    margin-left: 8px;
+    color: var(--text-light);
+    cursor: pointer;
+}
+
+.system-prompt-container {
+    position: relative;
+    max-height: 150px;
+    overflow-y: auto;
+    background-color: rgba(0, 0, 0, 0.02);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-white);
+    border-radius: 4px;
+    opacity: 0.7;
+}
+
+.copy-btn:hover {
+    opacity: 1;
 }

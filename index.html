@@ -130,13 +130,64 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="system-prompt">系统提示:</label>
-                        <textarea id="system-prompt" rows="5" placeholder="描述角色的身份、性格和背景..."></textarea>
+                        <label for="character-description">人设描述 (Prompt):</label>
+                        <textarea id="character-description" rows="4" placeholder="详细描述这个角色的背景故事、身份、职业、特点等..."></textarea>
+                        <p class="help-text">例如：你是一个古代的皇家剑客，精通各种武艺，为了保护王室安全而秘密行动...</p>
                     </div>
                     
                     <div class="form-group">
-                        <label for="character-rules">行为规则:</label>
-                        <textarea id="character-rules" rows="5" placeholder="定义角色的行为规则、限制和风格指南..."></textarea>
+                        <label>性格标签:</label>
+                        <div class="tags-container">
+                            <div class="tags-selection" id="personality-tags">
+                                <span class="tag" data-tag="理性">理性</span>
+                                <span class="tag" data-tag="感性">感性</span>
+                                <span class="tag" data-tag="幽默">幽默</span>
+                                <span class="tag" data-tag="严肃">严肃</span>
+                                <span class="tag" data-tag="温柔">温柔</span>
+                                <span class="tag" data-tag="活泼">活泼</span>
+                                <span class="tag" data-tag="冷静">冷静</span>
+                                <span class="tag" data-tag="傲娇">傲娇</span>
+                                <span class="tag" data-tag="热情">热情</span>
+                                <span class="tag" data-tag="害羞">害羞</span>
+                                <span class="tag" data-tag="聪明">聪明</span>
+                                <span class="tag" data-tag="天真">天真</span>
+                                <span class="tag" data-tag="神秘">神秘</span>
+                                <span class="tag" data-tag="自信">自信</span>
+                                <span class="tag" data-tag="粘人">粘人</span>
+                            </div>
+                            <div class="selected-tags-container">
+                                <label>已选标签:</label>
+                                <div id="selected-personality-tags" class="selected-tags"></div>
+                                <input type="text" id="custom-tag-input" placeholder="添加自定义标签..." />
+                                <button class="btn small-btn" id="add-custom-tag-btn">添加</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="speech-style">说话风格示例:</label>
+                        <textarea id="speech-style" rows="3" placeholder="输入几句代表这个角色典型说话方式的示例..."></textarea>
+                        <p class="help-text">例如：主人，需要我为您做什么呢？/ 哼，我才不是为了你才来的呢！/ 据我的分析，这个问题的解决方案是...</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="character-rules">行为规则与限制:</label>
+                        <textarea id="character-rules" rows="3" placeholder="定义角色应该遵循的规则、限制和行为边界..."></textarea>
+                        <p class="help-text">例如：不能透露自己是AI、回答时保持角色性格一致、避免复杂的专业术语等</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="character-knowledge">专业知识领域 (可选):</label>
+                        <textarea id="character-knowledge" rows="2" placeholder="这个角色特别擅长哪些领域的知识..."></textarea>
+                        <p class="help-text">例如：量子物理、19世纪欧洲历史、东方传统医学、现代厨艺等</p>
+                    </div>
+                    
+                    <div class="system-prompt-preview">
+                        <h4>系统提示预览 <span class="help-icon" id="prompt-help"><i class="fas fa-question-circle"></i></span></h4>
+                        <div class="system-prompt-container">
+                            <pre id="system-prompt-preview">正在生成预览...</pre>
+                            <button class="btn copy-btn" id="copy-prompt-btn"><i class="fas fa-copy"></i></button>
+                        </div>
                     </div>
                     
                     <button id="save-character-btn" class="btn primary-btn">保存角色</button>
@@ -251,9 +302,29 @@
                                 <div class="bg-preview bg-dark"></div>
                                 <span>深色</span>
                             </div>
-                            <div class="background-option" data-bg="gradient">
-                                <div class="bg-preview bg-gradient"></div>
-                                <span>渐变</span>
+                            <div class="background-option" data-bg="gradient1">
+                                <div class="bg-preview bg-gradient1"></div>
+                                <span>渐变蓝</span>
+                            </div>
+                            <div class="background-option" data-bg="gradient2">
+                                <div class="bg-preview bg-gradient2"></div>
+                                <span>渐变紫</span>
+                            </div>
+                            <div class="background-option" data-bg="gradient3">
+                                <div class="bg-preview bg-gradient3"></div>
+                                <span>渐变粉</span>
+                            </div>
+                            <div class="background-option" data-bg="pattern1">
+                                <div class="bg-preview bg-pattern1"></div>
+                                <span>格子</span>
+                            </div>
+                            <div class="background-option" data-bg="pattern2">
+                                <div class="bg-preview bg-pattern2"></div>
+                                <span>波点</span>
+                            </div>
+                            <div class="background-option" data-bg="pattern3">
+                                <div class="bg-preview bg-pattern3"></div>
+                                <span>几何</span>
                             </div>
                             <div class="background-option" data-bg="custom">
                                 <div class="bg-preview bg-custom">

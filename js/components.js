@@ -90,7 +90,7 @@ const UIComponents = {
     // 渲染聊天消息
     renderMessages: function(messages, character) {
         const container = document.getElementById('messages-container');
-        const emptyChat = document.getElementById('empty-chat');
+        let emptyChat = document.getElementById('empty-chat');
         
         // 保存滚动位置
         const wasAtBottom = this._isScrolledToBottom(container);
@@ -99,13 +99,25 @@ const UIComponents = {
         const fragment = document.createDocumentFragment();
         
         if (!messages || messages.length === 0) {
+            // 如果empty-chat元素不存在，则创建一个
+            if (!emptyChat) {
+                emptyChat = document.createElement('div');
+                emptyChat.id = 'empty-chat';
+                emptyChat.className = 'empty-chat';
+                emptyChat.innerHTML = '<div class="empty-chat-content">开始新对话吧!</div>';
+            }
+            
             emptyChat.style.display = 'flex';
             container.innerHTML = '';
             container.appendChild(emptyChat);
             return;
         }
         
-        emptyChat.style.display = 'none';
+        // 如果找到empty-chat元素，设置为不显示
+        if (emptyChat) {
+            emptyChat.style.display = 'none';
+        }
+        
         container.innerHTML = '';
         
         // 获取用户设置

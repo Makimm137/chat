@@ -6,9 +6,12 @@ const UIComponents = {
         listElement.innerHTML = '';
         
         if (conversations.length === 0) {
-            listElement.innerHTML = '<div class="empty-conversations">No conversations yet</div>';
+            listElement.innerHTML = '<div class="empty-conversations">没有会话记录</div>';
             return;
         }
+        
+        // 获取AI角色信息
+        const character = StorageService.getCharacter();
         
         conversations.forEach(conv => {
             const item = document.createElement('div');
@@ -17,16 +20,25 @@ const UIComponents = {
             
             const lastMessage = conv.messages.length > 0 
                 ? conv.messages[conv.messages.length - 1].content 
-                : 'New conversation';
+                : '开始新对话';
             
-            const preview = lastMessage.length > 50 
-                ? lastMessage.substring(0, 50) + '...' 
+            const preview = lastMessage.length > 40 
+                ? lastMessage.substring(0, 40) + '...' 
                 : lastMessage;
             
             item.innerHTML = `
-                <div class="conversation-title">${conv.title || 'New Conversation'}</div>
-                <div class="conversation-preview">${preview}</div>
-                <button class="delete-conversation" data-id="${conv.id}">&times;</button>
+                <div class="conversation-avatar">
+                    <img src="${character.avatar}" alt="${character.name}">
+                </div>
+                <div class="conversation-info">
+                    <div class="conversation-title">${conv.title || '新对话'}</div>
+                    <div class="conversation-preview">${preview}</div>
+                </div>
+                <div class="conversation-actions">
+                    <button class="delete-conversation" data-id="${conv.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
             `;
             
             listElement.appendChild(item);
@@ -41,9 +53,15 @@ const UIComponents = {
         // 点击会话切换
         document.querySelectorAll('.conversation-item').forEach(item => {
             item.addEventListener('click', function(event) {
-                if (!event.target.classList.contains('delete-conversation')) {
+                if (!event.target.classList.contains('delete-conversation') && 
+                    !event.target.closest('.delete-conversation')) {
                     const id = this.dataset.id;
                     App.loadConversation(id);
+                    
+                    // 移动端自动关闭侧边栏
+                    if (window.innerWidth <= 768) {
+                        document.getElementById('sidebar').classList.remove('active');
+                    }
                 }
             });
         });
@@ -53,7 +71,7 @@ const UIComponents = {
             button.addEventListener('click', function(event) {
                 event.stopPropagation();
                 const id = this.dataset.id;
-                if (confirm('Are you sure you want to delete this conversation?')) {
+                if (confirm('确定要删除这个会话吗？')) {
                     App.deleteConversation(id);
                 }
             });
@@ -68,62 +86,110 @@ const UIComponents = {
         // 保存滚动位置
         const wasAtBottom = this._isScrolledToBottom(container);
         
-        if (messages.length === 0) {
+        if (!messages || messages.length === 0) {
             emptyChat.style.display = 'flex';
-        } else {
-            emptyChat.style.display = 'none';
-            
-            // 清空容器但保留空聊天提示
             container.innerHTML = '';
+            container.appendChild(emptyChat);
+            return;
+        }
+        
+        emptyChat.style.display = 'none';
+        container.innerHTML = '';
+        
+        // 获取用户设置
+        const userSettings = StorageService.getUserSettings();
+        
+        // 按时间排序消息
+        const sortedMessages = [...messages].sort((a, b) => a.timestamp - b.timestamp);
+        
+        // 渲染消息
+        sortedMessages.forEach((message, index) => {
+            let messageElement;
             
-            // 渲染消息
-            messages.forEach(message => {
-                const messageElement = this._createMessageElement(message, character);
-                container.appendChild(messageElement);
-            });
-            
-            // 如果之前在底部，滚动到新底部
-            if (wasAtBottom) {
-                this._scrollToBottom(container);
+            if (message.role === 'user') {
+                messageElement = this._createUserMessageElement(message, userSettings);
+            } else if (message.role === 'assistant') {
+                messageElement = this._createAIMessageElement(message, character);
+            } else if (message.role === 'system') {
+                messageElement = this._createSystemMessageElement(message);
             }
+            
+            if (messageElement) {
+                container.appendChild(messageElement);
+            }
+        });
+        
+        // 如果之前在底部，滚动到新底部
+        if (wasAtBottom) {
+            this._scrollToBottom(container);
         }
     },
     
-    // 创建单条消息元素
-    _createMessageElement: function(message, character) {
+    // 创建用户消息元素
+    _createUserMessageElement: function(message, userSettings) {
         const messageDiv = document.createElement('div');
+        messageDiv.className = 'message user-message';
         
-        if (message.role === 'user') {
-            messageDiv.className = 'message user-message';
-            messageDiv.innerHTML = `
+        const formattedTime = this._formatTimestamp(message.timestamp);
+        
+        // 使用用户头像或首字母
+        const userAvatar = userSettings.avatar || 'https://via.placeholder.com/32';
+        const userName = userSettings.name || '我';
+        const userInitial = userName.charAt(0).toUpperCase();
+        
+        messageDiv.innerHTML = `
+            <div class="message-group">
                 <div class="message-bubble">
                     <div class="message-content">${this._formatMessage(message.content)}</div>
-                    <div class="message-timestamp">${this._formatTimestamp(message.timestamp)}</div>
                 </div>
-                <div class="message-avatar">
-                    <div class="user-avatar">You</div>
+                <div class="message-info">
+                    ${formattedTime}
+                    <span class="read-status">${message.isRead ? '<i class="fas fa-check-double"></i>' : '<i class="fas fa-check"></i>'}</span>
                 </div>
-            `;
-        } else if (message.role === 'assistant') {
-            messageDiv.className = 'message ai-message';
-            messageDiv.innerHTML = `
-                <div class="message-avatar">
-                    <img src="${character.avatar}" alt="${character.name}">
-                </div>
+            </div>
+            <div class="message-avatar">
+                ${userAvatar.startsWith('data:') || userAvatar.startsWith('http') 
+                    ? `<img src="${userAvatar}" alt="${userName}">` 
+                    : `<div class="user-avatar-container">${userInitial}</div>`}
+            </div>
+        `;
+        
+        return messageDiv;
+    },
+    
+    // 创建AI消息元素
+    _createAIMessageElement: function(message, character) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ai-message';
+        
+        const formattedTime = this._formatTimestamp(message.timestamp);
+        
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <img src="${character.avatar}" alt="${character.name}">
+            </div>
+            <div class="message-group">
                 <div class="message-bubble">
                     <div class="message-content">${this._formatMessage(message.content)}</div>
-                    <div class="message-timestamp">${this._formatTimestamp(message.timestamp)}</div>
                 </div>
-            `;
-        } else if (message.role === 'system') {
-            messageDiv.className = 'message system-message';
-            messageDiv.innerHTML = `
-                <div class="message-bubble">
-                    <div class="message-content">${message.content}</div>
-                    <div class="message-timestamp">${this._formatTimestamp(message.timestamp)}</div>
-                </div>
-            `;
-        }
+                <div class="message-info">${formattedTime}</div>
+            </div>
+        `;
+        
+        return messageDiv;
+    },
+    
+    // 创建系统消息元素
+    _createSystemMessageElement: function(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message system-message';
+        
+        messageDiv.innerHTML = `
+            <div class="message-bubble">
+                <div class="message-content">${message.content}</div>
+                <div class="message-info">${this._formatTimestamp(message.timestamp)}</div>
+            </div>
+        `;
         
         return messageDiv;
     },
@@ -140,11 +206,13 @@ const UIComponents = {
             <div class="message-avatar">
                 <img src="${character.avatar}" alt="${character.name}">
             </div>
-            <div class="message-bubble">
-                <div class="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+            <div class="message-group">
+                <div class="message-bubble">
+                    <div class="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
                 </div>
             </div>
         `;
@@ -165,8 +233,8 @@ const UIComponents = {
     renderMemories: function(memories) {
         const container = document.getElementById('memories-list');
         
-        if (memories.length === 0) {
-            container.innerHTML = '<div class="empty-memories">No memories yet</div>';
+        if (!memories || memories.length === 0) {
+            container.innerHTML = '<div class="empty-memories">暂无记忆</div>';
             return;
         }
         
@@ -179,7 +247,7 @@ const UIComponents = {
             
             memoryDiv.innerHTML = `
                 <div class="memory-content">${memory.content}</div>
-                <div class="memory-tag">${memory.isGlobal ? 'Global Memory' : 'Conversation Memory'}</div>
+                <div class="memory-tag ${memory.isGlobal ? 'global' : ''}">${memory.isGlobal ? '全局记忆' : '会话记忆'}</div>
                 <div class="memory-actions">
                     <button class="edit-memory" data-id="${memory.id}"><i class="fas fa-pencil-alt"></i></button>
                     <button class="delete-memory" data-id="${memory.id}"><i class="fas fa-trash"></i></button>
@@ -207,7 +275,7 @@ const UIComponents = {
         document.querySelectorAll('.delete-memory').forEach(button => {
             button.addEventListener('click', function() {
                 const id = this.dataset.id;
-                if (confirm('Are you sure you want to delete this memory?')) {
+                if (confirm('确定要删除这条记忆吗？')) {
                     App.deleteMemory(id);
                 }
             });
@@ -219,16 +287,32 @@ const UIComponents = {
         if (!timestamp) return '';
         
         const date = new Date(timestamp);
-        return date.toLocaleString('en-US', { 
-            hour: 'numeric', 
-            minute: 'numeric',
-            hour12: true,
-            month: 'short',
-            day: 'numeric'
-        });
+        const now = new Date();
+        
+        // 如果是今天的消息，只显示时间
+        if (date.toDateString() === now.toDateString()) {
+            return date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+        }
+        
+        // 如果是昨天的消息
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        if (date.toDateString() === yesterday.toDateString()) {
+            return `昨天 ${date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'})}`;
+        }
+        
+        // 如果是今年的消息
+        if (date.getFullYear() === now.getFullYear()) {
+            return date.toLocaleDateString('zh-CN', {month: '2-digit', day: '2-digit'}) + 
+                   ' ' + date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+        }
+        
+        // 其他情况显示完整日期
+        return date.toLocaleDateString('zh-CN') + ' ' + 
+               date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
     },
     
-    // 格式化消息内容（处理换行和代码块）
+    // 格式化消息内容（处理换行、代码块、表情符号等）
     _formatMessage: function(content) {
         if (!content) return '';
         
@@ -240,6 +324,12 @@ const UIComponents = {
         
         // 处理行内代码 (`code`)
         formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+        
+        // 简单表情符号转换
+        formatted = formatted.replace(/:smile:/g, '😊')
+                   .replace(/:laugh:/g, '😄')
+                   .replace(/:heart:/g, '❤️')
+                   .replace(/:thumbsup:/g, '👍');
         
         return formatted;
     },
@@ -262,27 +352,67 @@ const UIComponents = {
     
     // 更新角色信息UI
     updateCharacterUI: function(character) {
-        // 更新侧边栏头像和名称
-        document.getElementById('character-avatar-sidebar').src = character.avatar;
-        document.getElementById('character-name-sidebar').textContent = character.name;
+        // 更新聊天区域头像和名称
+        document.getElementById('ai-avatar-header').src = character.avatar || 'https://via.placeholder.com/40';
+        document.getElementById('current-conversation-title').textContent = character.name || 'AI助手';
         
         // 更新设置面板
-        document.getElementById('character-name').value = character.name;
-        document.getElementById('character-avatar').value = character.avatar;
-        document.getElementById('system-prompt').value = character.systemPrompt;
-        document.getElementById('character-rules').value = character.rules;
+        document.getElementById('character-name').value = character.name || '';
+        document.getElementById('character-avatar').value = character.avatar || '';
+        document.getElementById('system-prompt').value = character.systemPrompt || '';
+        document.getElementById('character-rules').value = character.rules || '';
         
         // 更新头像预览
-        document.querySelector('#avatar-preview img').src = character.avatar;
+        document.querySelector('#ai-avatar-preview img').src = character.avatar || 'https://via.placeholder.com/100';
+    },
+    
+    // 更新用户设置UI
+    updateUserSettingsUI: function(settings) {
+        document.getElementById('user-name').value = settings.name || '';
+        document.getElementById('user-avatar-url').value = settings.avatar || '';
+        document.querySelector('#user-avatar-preview img').src = settings.avatar || 'https://via.placeholder.com/100';
+        
+        // 更新用户资料弹窗
+        document.getElementById('profile-name').value = settings.name || '';
+        document.getElementById('profile-bio').value = settings.bio || '';
+        document.getElementById('profile-avatar-img').src = settings.avatar || 'https://via.placeholder.com/120';
+    },
+    
+    // 更新外观设置UI
+    updateAppearanceUI: function(appearance) {
+        // 移除所有背景选项的selected类
+        document.querySelectorAll('.background-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        // 添加selected类到当前背景选项
+        const selectedOption = document.querySelector(`.background-option[data-bg="${appearance.background}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+        
+        // 设置聊天区域背景
+        const chatArea = document.getElementById('chat-area');
+        chatArea.setAttribute('data-bg', appearance.background);
+        
+        // 如果是自定义背景，设置背景图片
+        if (appearance.background === 'custom' && appearance.customBackground) {
+            chatArea.style.setProperty('--custom-bg', `url(${appearance.customBackground})`);
+            document.querySelector('.bg-custom').style.backgroundImage = `url(${appearance.customBackground})`;
+            document.querySelector('.bg-custom').innerHTML = '';
+        }
+        
+        // 设置主题
+        document.body.setAttribute('data-theme', appearance.theme || 'light');
     },
     
     // 更新API设置UI
     updateApiSettingsUI: function(apiConfig) {
-        document.getElementById('api-provider').value = apiConfig.provider;
-        document.getElementById('api-key').value = apiConfig.apiKey;
-        document.getElementById('api-model').value = apiConfig.model;
+        document.getElementById('api-provider').value = apiConfig.provider || 'openai';
+        document.getElementById('api-key').value = apiConfig.apiKey || '';
+        document.getElementById('api-model').value = apiConfig.model || '';
         
-        // 更新endpoint输入框显示状态
+        // 显示/隐藏端点输入框
         const endpointGroup = document.querySelector('.api-endpoint-group');
         if (apiConfig.provider === 'azure' || apiConfig.provider === 'other') {
             endpointGroup.style.display = 'block';
@@ -294,45 +424,21 @@ const UIComponents = {
     
     // 显示通知
     showNotification: function(message, type = 'info') {
-        // 创建通知元素
+        const container = document.getElementById('notifications-container');
+        
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        notification.textContent = message;
+        notification.innerHTML = message;
         
-        // 检查是否已存在通知容器
-        let notifContainer = document.querySelector('.notification-container');
-        if (!notifContainer) {
-            notifContainer = document.createElement('div');
-            notifContainer.className = 'notification-container';
-            document.body.appendChild(notifContainer);
-        }
-        
-        // 添加通知到容器
-        notifContainer.appendChild(notification);
-        
-        // 添加样式
-        notification.style.backgroundColor = type === 'error' ? '#ff4d4f' : '#52c41a';
-        notification.style.color = 'white';
-        notification.style.padding = '10px 16px';
-        notification.style.borderRadius = '4px';
-        notification.style.marginBottom = '10px';
-        notification.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+        container.appendChild(notification);
         
         // 3秒后自动移除
         setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateY(-10px)';
-            notification.style.transition = 'all 0.3s ease';
+            notification.style.animation = 'slideOut 0.3s forwards';
             
             setTimeout(() => {
                 notification.remove();
-                
-                // 如果容器为空，移除容器
-                if (notifContainer.children.length === 0) {
-                    notifContainer.remove();
-                }
             }, 300);
         }, 3000);
     }
 };
-

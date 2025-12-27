@@ -1,1 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Character Chat</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- 添加FontAwesome图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 左侧侧边栏 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="character-info">
+                    <img id="character-avatar-sidebar" src="https://via.placeholder.com/40" alt="Character Avatar">
+                    <h2 id="character-name-sidebar">AI Assistant</h2>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="search-conversations" placeholder="Search conversations...">
+                </div>
+                <button id="new-conversation-btn" class="btn primary-btn">New Chat</button>
+            </div>
+            
+            <div class="conversations-list" id="conversations-list">
+                <!-- 会话列表将动态插入这里 -->
+            </div>
+            
+            <div class="sidebar-footer">
+                <button id="settings-btn" class="btn"><i class="fas fa-cog"></i> Settings</button>
+                <button id="export-data-btn" class="btn"><i class="fas fa-download"></i> Export</button>
+                <button id="import-data-btn" class="btn"><i class="fas fa-upload"></i> Import</button>
+                <input type="file" id="import-file-input" accept=".json" style="display: none;">
+            </div>
+        </div>
+
+        <!-- 中间主聊天区 -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <h3 id="current-conversation-title">Select a conversation</h3>
+                <button id="generate-memory-btn" class="btn">Generate Memory</button>
+            </div>
+            
+            <div class="messages-container" id="messages-container">
+                <div class="empty-chat" id="empty-chat">
+                    <h3>Start a conversation</h3>
+                    <p>Select a conversation from the sidebar or create a new one.</p>
+                </div>
+                <!-- 聊天消息将动态插入这里 -->
+            </div>
+            
+            <div class="message-input-container">
+                <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
+                <button id="send-message-btn" class="btn primary-btn" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 右侧设置面板 -->
+        <div class="settings-panel" id="settings-panel">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button id="close-settings-btn" class="btn close-btn">&times;</button>
+            </div>
+            
+            <div class="settings-tabs">
+                <button class="tab-btn active" data-tab="character">Character</button>
+                <button class="tab-btn" data-tab="api">API</button>
+                <button class="tab-btn" data-tab="memory">Memories</button>
+            </div>
+            
+            <div class="settings-content">
+                <!-- 角色设置 -->
+                <div class="settings-tab active" id="character-tab">
+                    <h3>Character Settings</h3>
+                    
+                    <div class="form-group">
+                        <label for="character-name">Name:</label>
+                        <input type="text" id="character-name" placeholder="Character name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="character-avatar">Avatar URL:</label>
+                        <input type="text" id="character-avatar" placeholder="https://example.com/avatar.jpg">
+                        <div id="avatar-preview" class="avatar-preview">
+                            <img src="https://via.placeholder.com/100" alt="Preview">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="system-prompt">System Prompt:</label>
+                        <textarea id="system-prompt" rows="5" placeholder="Describe the character's identity, personality, and background..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="character-rules">Rules:</label>
+                        <textarea id="character-rules" rows="5" placeholder="Define behavioral rules, limitations, and style guidelines..."></textarea>
+                    </div>
+                    
+                    <button id="save-character-btn" class="btn primary-btn">Save Character</button>
+                </div>
+                
+                <!-- API设置 -->
+                <div class="settings-tab" id="api-tab">
+                    <h3>API Settings</h3>
+                    
+                    <div class="form-group">
+                        <label for="api-provider">Provider:</label>
+                        <select id="api-provider">
+                            <option value="openai">OpenAI</option>
+                            <option value="azure">Azure OpenAI</option>
+                            <option value="anthropic">Anthropic (Claude)</option>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="api-key">API Key:</label>
+                        <input type="password" id="api-key" placeholder="Enter your API key">
+                        <p class="help-text">Your API key is stored locally and never sent to our servers.</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="api-model">Model:</label>
+                        <input type="text" id="api-model" placeholder="e.g. gpt-3.5-turbo, gpt-4">
+                    </div>
+                    
+                    <div class="form-group api-endpoint-group" style="display: none;">
+                        <label for="api-endpoint">API Endpoint:</label>
+                        <input type="text" id="api-endpoint" placeholder="https://your-endpoint.com/v1/chat/completions">
+                    </div>
+                    
+                    <button id="save-api-btn" class="btn primary-btn">Save API Settings</button>
+                    <button id="test-api-btn" class="btn">Test Connection</button>
+                </div>
+                
+                <!-- 记忆管理 -->
+                <div class="settings-tab" id="memory-tab">
+                    <h3>Memory Management</h3>
+                    
+                    <div class="form-group">
+                        <label>Current Memories:</label>
+                        <div id="memories-list" class="memories-list">
+                            <!-- 记忆列表将动态插入这里 -->
+                            <div class="empty-memories">No memories yet</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new-memory">Add New Memory:</label>
+                        <textarea id="new-memory" rows="3" placeholder="Enter a new memory..."></textarea>
+                        <div class="memory-options">
+                            <label>
+                                <input type="checkbox" id="memory-is-global">
+                                Global Memory (available in all conversations)
+                            </label>
+                        </div>
+                        <button id="add-memory-btn" class="btn primary-btn">Add Memory</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入JavaScript文件 -->
+    <script src="js/storage.js"></script>
+    <script src="js/aiService.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
 

@@ -1,5 +1,14 @@
 // UI组件对象
 const UIComponents = {
+    // 防抖函数
+    _debounce: function(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    },
+    
     // 渲染会话列表
     renderConversations: function(conversations, currentId) {
         const listElement = document.getElementById('conversations-list');
@@ -86,6 +95,9 @@ const UIComponents = {
         // 保存滚动位置
         const wasAtBottom = this._isScrolledToBottom(container);
         
+        // 使用文档碎片减少DOM操作
+        const fragment = document.createDocumentFragment();
+        
         if (!messages || messages.length === 0) {
             emptyChat.style.display = 'flex';
             container.innerHTML = '';
@@ -102,7 +114,7 @@ const UIComponents = {
         // 按时间排序消息
         const sortedMessages = [...messages].sort((a, b) => a.timestamp - b.timestamp);
         
-        // 渲染消息
+        // 一次性渲染消息，减少重排重绘
         sortedMessages.forEach((message, index) => {
             let messageElement;
             
@@ -115,13 +127,19 @@ const UIComponents = {
             }
             
             if (messageElement) {
-                container.appendChild(messageElement);
+                fragment.appendChild(messageElement);
             }
         });
         
+        // 一次性添加所有消息到DOM
+        container.appendChild(fragment);
+        
         // 如果之前在底部，滚动到新底部
         if (wasAtBottom) {
-            this._scrollToBottom(container);
+            // 使用requestAnimationFrame确保在渲染后滚动
+            requestAnimationFrame(() => {
+                this._scrollToBottom(container);
+            });
         }
     },
     
@@ -129,6 +147,7 @@ const UIComponents = {
     _createUserMessageElement: function(message, userSettings) {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message user-message';
+        messageDiv.dataset.id = message.id;
         
         const formattedTime = this._formatTimestamp(message.timestamp);
         
@@ -141,10 +160,21 @@ const UIComponents = {
             <div class="message-group">
                 <div class="message-bubble">
                     <div class="message-content">${this._formatMessage(message.content)}</div>
+                    <div class="message-reactions">
+                        ${this._renderReactions(message.reactions)}
+                    </div>
                 </div>
                 <div class="message-info">
                     ${formattedTime}
                     <span class="read-status">${message.isRead ? '<i class="fas fa-check-double"></i>' : '<i class="fas fa-check"></i>'}</span>
+                </div>
+                <div class="reaction-toolbar">
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="👍">👍</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="❤️">❤️</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="😂">😂</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="😮">😮</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="😢">😢</button>
+                    <button class="reaction-btn more-reactions" data-id="${message.id}">+</button>
                 </div>
             </div>
             <div class="message-avatar">
@@ -154,6 +184,9 @@ const UIComponents = {
             </div>
         `;
         
+        // 添加事件监听器
+        this._addReactionListeners(messageDiv);
+        
         return messageDiv;
     },
     
@@ -161,6 +194,7 @@ const UIComponents = {
     _createAIMessageElement: function(message, character) {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message ai-message';
+        messageDiv.dataset.id = message.id;
         
         const formattedTime = this._formatTimestamp(message.timestamp);
         
@@ -171,10 +205,24 @@ const UIComponents = {
             <div class="message-group">
                 <div class="message-bubble">
                     <div class="message-content">${this._formatMessage(message.content)}</div>
+                    <div class="message-reactions">
+                        ${this._renderReactions(message.reactions)}
+                    </div>
                 </div>
                 <div class="message-info">${formattedTime}</div>
+                <div class="reaction-toolbar">
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="👍">👍</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="❤️">❤️</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="😂">😂</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="😮">😮</button>
+                    <button class="reaction-btn" data-id="${message.id}" data-emoji="😢">😢</button>
+                    <button class="reaction-btn more-reactions" data-id="${message.id}">+</button>
+                </div>
             </div>
         `;
+        
+        // 添加事件监听器
+        this._addReactionListeners(messageDiv);
         
         return messageDiv;
     },
@@ -192,6 +240,102 @@ const UIComponents = {
         `;
         
         return messageDiv;
+    },
+    
+    // 渲染消息反应
+    _renderReactions: function(reactions) {
+        if (!reactions || Object.keys(reactions).length === 0) {
+            return '';
+        }
+        
+        let html = '<div class="reactions-container">';
+        
+        for (const [emoji, count] of Object.entries(reactions)) {
+            if (count > 0) {
+                html += `<div class="reaction" data-emoji="${emoji}">${emoji} ${count}</div>`;
+            }
+        }
+        
+        html += '</div>';
+        return html;
+    },
+    
+    // 为反应按钮添加事件监听器
+    _addReactionListeners: function(messageElement) {
+        // 常规表情反应按钮
+        messageElement.querySelectorAll('.reaction-btn:not(.more-reactions)').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const messageId = button.dataset.id;
+                const emoji = button.dataset.emoji;
+                App.toggleReaction(messageId, emoji);
+            });
+        });
+        
+        // 更多表情按钮
+        messageElement.querySelector('.more-reactions')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const messageId = e.target.dataset.id;
+            this._showEmojiPicker(messageId, e.target);
+        });
+        
+        // 点击已有表情
+        messageElement.querySelectorAll('.reaction').forEach(reaction => {
+            reaction.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const messageId = messageElement.dataset.id;
+                const emoji = reaction.dataset.emoji;
+                App.toggleReaction(messageId, emoji);
+            });
+        });
+    },
+    
+    // 显示表情选择器
+    _showEmojiPicker: function(messageId, targetElement) {
+        // 检查是否已存在表情选择器
+        let picker = document.querySelector('.emoji-picker');
+        if (picker) {
+            picker.remove();
+        }
+        
+        // 创建表情选择器
+        picker = document.createElement('div');
+        picker.className = 'emoji-picker';
+        picker.dataset.messageId = messageId;
+        
+        // 常用表情
+        const commonEmojis = ['😀', '😊', '🤣', '😍', '🥰', '😘', '😎', '🤔', '😮', '😢', 
+                             '😡', '👍', '👎', '❤️', '🔥', '🎉', '🙏', '👏', '🤝', '💯'];
+        
+        let emojiHtml = '';
+        commonEmojis.forEach(emoji => {
+            emojiHtml += `<span class="emoji-option" data-emoji="${emoji}">${emoji}</span>`;
+        });
+        
+        picker.innerHTML = emojiHtml;
+        
+        // 定位表情选择器
+        document.body.appendChild(picker);
+        const rect = targetElement.getBoundingClientRect();
+        picker.style.top = `${rect.top - picker.offsetHeight}px`;
+        picker.style.left = `${rect.left}px`;
+        
+        // 添加事件监听器
+        picker.querySelectorAll('.emoji-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                const emoji = e.target.dataset.emoji;
+                App.toggleReaction(messageId, emoji);
+                picker.remove();
+            });
+        });
+        
+        // 点击其他地方关闭选择器
+        document.addEventListener('click', function closePicker(e) {
+            if (!picker.contains(e.target) && e.target !== targetElement) {
+                picker.remove();
+                document.removeEventListener('click', closePicker);
+            }
+        });
     },
     
     // 添加加载中指示器
@@ -238,7 +382,8 @@ const UIComponents = {
             return;
         }
         
-        container.innerHTML = '';
+        // 使用文档碎片
+        const fragment = document.createDocumentFragment();
         
         memories.forEach(memory => {
             const memoryDiv = document.createElement('div');
@@ -254,8 +399,11 @@ const UIComponents = {
                 </div>
             `;
             
-            container.appendChild(memoryDiv);
+            fragment.appendChild(memoryDiv);
         });
+        
+        container.innerHTML = '';
+        container.appendChild(fragment);
         
         // 添加事件监听器
         this._addMemoryEventListeners();
@@ -359,11 +507,59 @@ const UIComponents = {
         // 更新设置面板
         document.getElementById('character-name').value = character.name || '';
         document.getElementById('character-avatar').value = character.avatar || '';
-        document.getElementById('system-prompt').value = character.systemPrompt || '';
+        document.getElementById('character-description').value = character.description || '';
+        document.getElementById('speech-style').value = character.speechStyle || '';
         document.getElementById('character-rules').value = character.rules || '';
+        document.getElementById('character-knowledge').value = character.knowledge || '';
         
         // 更新头像预览
         document.querySelector('#ai-avatar-preview img').src = character.avatar || 'https://via.placeholder.com/100';
+        
+        // 更新性格标签
+        // 首先清除所有已选择的标签
+        document.querySelectorAll('#personality-tags .tag').forEach(tag => {
+            tag.classList.remove('selected');
+        });
+        
+        // 清空已选标签容器
+        const selectedTagsContainer = document.getElementById('selected-personality-tags');
+        selectedTagsContainer.innerHTML = '';
+        
+        // 添加保存的标签
+        if (character.personalityTags && character.personalityTags.length > 0) {
+            character.personalityTags.forEach(tagValue => {
+                // 检查是否为预设标签
+                const predefinedTag = document.querySelector(`.tag[data-tag="${tagValue}"]`);
+                
+                if (predefinedTag) {
+                    // 如果是预设标签，选中它
+                    predefinedTag.classList.add('selected');
+                }
+                
+                // 创建已选标签元素
+                const tagElement = document.createElement('div');
+                tagElement.className = 'selected-tag' + (predefinedTag ? '' : ' custom');
+                tagElement.dataset.value = tagValue;
+                tagElement.innerHTML = `
+                    ${tagValue}
+                    <span class="remove-tag">&times;</span>
+                `;
+                
+                // 添加移除标签功能
+                tagElement.querySelector('.remove-tag').addEventListener('click', () => {
+                    tagElement.remove();
+                    if (predefinedTag) {
+                        predefinedTag.classList.remove('selected');
+                    }
+                    App._updateSystemPromptPreview();
+                });
+                
+                selectedTagsContainer.appendChild(tagElement);
+            });
+        }
+        
+        // 更新系统提示预览
+        App._updateSystemPromptPreview();
     },
     
     // 更新用户设置UI
@@ -423,7 +619,7 @@ const UIComponents = {
     },
     
     // 显示通知
-    showNotification: function(message, type = 'info') {
+    showNotification: function(message, type = 'info', duration = 3000) {
         const container = document.getElementById('notifications-container');
         
         const notification = document.createElement('div');
@@ -432,13 +628,13 @@ const UIComponents = {
         
         container.appendChild(notification);
         
-        // 3秒后自动移除
+        // 自动移除
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s forwards';
             
             setTimeout(() => {
                 notification.remove();
             }, 300);
-        }, 3000);
+        }, duration);
     }
 };

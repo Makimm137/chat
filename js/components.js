@@ -384,45 +384,6 @@ const UIComponents = {
             loadingMessage.remove();
         }
     },
-
-      // 在UIComponents对象中添加以下两个方法:
-    
-    // 添加正在输入指示器
-    addTypingIndicator: function(character) {
-        // 移除任何现有的加载指示器
-        this.removeLoadingIndicator();
-        this.removeTypingIndicator();
-        
-        const messagesContainer = document.getElementById('messages-container');
-        const typingIndicator = document.createElement('div');
-        typingIndicator.className = 'message ai-message typing-indicator';
-        typingIndicator.id = 'typing-indicator';
-        
-        typingIndicator.innerHTML = `
-            <div class="message-avatar">
-                <img src="${character.avatar || 'https://via.placeholder.com/150'}" alt="${character.name || 'AI'}">
-            </div>
-            <div class="message-group">
-                <div class="message-bubble">
-                    <div class="typing-dots">
-                        <span></span><span></span><span></span>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        messagesContainer.appendChild(typingIndicator);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    },
-    
-    // 移除正在输入指示器
-    removeTypingIndicator: function() {
-        const typingIndicator = document.getElementById('typing-indicator');
-        if (typingIndicator) {
-            typingIndicator.remove();
-        }
-    }
-
     
     // 渲染记忆列表
     renderMemories: function(memories) {

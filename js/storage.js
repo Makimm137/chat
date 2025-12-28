@@ -5,7 +5,8 @@ const STORAGE_KEYS = {
     CURRENT_CONVERSATION: 'currentConversationId',
     API_CONFIG: 'apiConfig',
     USER_SETTINGS: 'userSettings',
-    APPEARANCE: 'appearance'
+    APPEARANCE: 'appearance',
+    PROACTIVE_STATE_PREFIX: 'proactive_state_'  // 新增：主动消息状态前缀
 };
 
 // 默认角色设置
@@ -145,6 +146,25 @@ const StorageService = {
     // 保存外观设置
     saveAppearance: function(appearance) {
         localStorage.setItem(STORAGE_KEYS.APPEARANCE, JSON.stringify(appearance));
+    },
+    
+    // 获取会话的主动消息状态
+    getProactiveState: function(conversationId) {
+        const key = STORAGE_KEYS.PROACTIVE_STATE_PREFIX + conversationId;
+        const stateStr = localStorage.getItem(key);
+        return stateStr ? JSON.parse(stateStr) : null;
+    },
+    
+    // 保存会话的主动消息状态
+    saveProactiveState: function(conversationId, state) {
+        const key = STORAGE_KEYS.PROACTIVE_STATE_PREFIX + conversationId;
+        localStorage.setItem(key, JSON.stringify(state));
+    },
+    
+    // 删除会话的主动消息状态
+    deleteProactiveState: function(conversationId) {
+        const key = STORAGE_KEYS.PROACTIVE_STATE_PREFIX + conversationId;
+        localStorage.removeItem(key);
     },
     
     // 导出所有数据

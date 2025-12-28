@@ -8,7 +8,6 @@ const App = {
     currentConversation: null,
     isLoading: false,
     proactiveTimer: null,  // 主动消息定时器
-    messageQueue: [],      // 消息队列
     
     // 初始化应用
     init: function() {
@@ -642,89 +641,34 @@ const App = {
                 memories
             );
             
-            // 处理分段发送消息
-            this._sendSegmentedMessage(aiResponse.content, true);
+            // 构建AI消息对象
+            const aiMessage = {
+                id: generateId(),
+                role: 'assistant',
+                content: aiResponse.content,
+                timestamp: Date.now(),
+                isProactive: true
+            };
+            
+            // 更新会话
+            this.currentConversation.messages.push(aiMessage);
+            this.currentConversation.updatedAt = Date.now();
+            StorageService.saveConversation(this.currentConversation);
             
             // 更新主动消息状态
             proactiveState.sentCount += 1;
             proactiveState.lastProactiveTime = Date.now();
             StorageService.saveProactiveState(this.currentConversation.id, proactiveState);
             
+            // 更新UI
+            UIComponents.renderMessages(this.currentConversation.messages, character);
+            UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
+            
             console.log(`已发送第${proactiveState.sentCount}条主动消息`);
             
         } catch (error) {
             console.error('发送主动消息失败:', error);
-            this.isLoading = false;
-        }
-    },
-    
-    // 分段发送消息函数
-    _sendSegmentedMessage: function(content, isProactive = false) {
-        // 根据空行分段消息
-        const segments = content.split(/\n\s*\n/).filter(segment => segment.trim() !== '');
-        
-        if (segments.length === 0) return;
-        
-        // 清除现有的消息队列
-        this.messageQueue = [];
-        
-        // 将段落添加到消息队列
-        segments.forEach((segment, index) => {
-            this.messageQueue.push({
-                content: segment.trim(),
-                isLast: index === segments.length - 1,
-                isProactive: isProactive
-            });
-        });
-        
-        // 开始发送第一条消息
-        this._processMessageQueue();
-    },
-    
-    // 处理消息队列
-    _processMessageQueue: function() {
-        if (this.messageQueue.length === 0 || !this.currentConversation) {
-            this.isLoading = false;
-            return;
-        }
-        
-        const nextMessage = this.messageQueue.shift();
-        const isLast = nextMessage.isLast;
-        
-        // 构建AI消息对象
-        const aiMessage = {
-            id: generateId(),
-            role: 'assistant',
-            content: nextMessage.content,
-            timestamp: Date.now(),
-            isProactive: nextMessage.isProactive,
-            isContinued: this.messageQueue.length > 0 // 标记是否有后续消息
-        };
-        
-        // 更新会话
-        this.currentConversation.messages.push(aiMessage);
-        this.currentConversation.updatedAt = Date.now();
-        StorageService.saveConversation(this.currentConversation);
-        
-        // 更新UI
-        const character = StorageService.getCharacter();
-        UIComponents.renderMessages(this.currentConversation.messages, character);
-        UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
-        
-        // 如果还有消息，设置定时器发送下一条
-        if (this.messageQueue.length > 0) {
-            // 随机生成间隔时间，范围在15-40秒之间
-            const delay = Math.floor(Math.random() * (40 - 15 + 1) + 15) * 1000;
-            
-            // 在间隔时间结束前显示输入指示器
-            UIComponents.addTypingIndicator(character);
-            
-            setTimeout(() => {
-                UIComponents.removeTypingIndicator();
-                this._processMessageQueue();
-            }, delay);
-        } else {
-            // 所有消息发送完毕
+        } finally {
             this.isLoading = false;
         }
     },
@@ -957,16 +901,26 @@ const App = {
                 memories
             );
             
+            // 构建AI消息对象
+            const aiMessage = {
+                id: generateId(),
+                role: 'assistant',
+                content: aiResponse.content,
+                timestamp: Date.now()
+            };
+            
             // 将用户消息标记为已读
             userMessage.isRead = true;
+            
+            // 更新会话
             this.currentConversation.messages[this.currentConversation.messages.length - 1] = userMessage;
+            this.currentConversation.messages.push(aiMessage);
+            this.currentConversation.updatedAt = Date.now();
             StorageService.saveConversation(this.currentConversation);
             
-            // 移除加载中指示器
-            UIComponents.removeLoadingIndicator();
-            
-            // 使用分段发送函数处理AI回复
-            this._sendSegmentedMessage(aiResponse.content);
+            // 更新UI
+            UIComponents.renderMessages(this.currentConversation.messages, character);
+            UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
             
             // 每隔10条消息自动生成一次记忆
             if (this.currentConversation.messages.length % 10 === 0 && this.currentConversation.messages.length >= 10) {
@@ -994,6 +948,7 @@ const App = {
             // 显示错误通知
             UIComponents.showNotification('无法获取AI响应，请检查API设置。', 'error');
             
+        } finally {
             // 移除加载中指示器
             UIComponents.removeLoadingIndicator();
             this.isLoading = false;
@@ -1452,6 +1407,3 @@ const App = {
 document.addEventListener('DOMContentLoaded', function() {
     App.init();
 });
-
-// 需要在UIComponents中添加"正在输入"指示器函数
-// 假设这部分代码已经在components.js中实现

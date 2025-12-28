@@ -7,12 +7,14 @@ function generateId() {
 const App = {
     currentConversation: null,
     isLoading: false,
+    proactiveTimer: null,  // 主动消息定时器
     
     // 初始化应用
     init: function() {
         this._loadInitialData();
         this._setupEventListeners();
         this._setupMobileUI();
+        this._setupProactiveMessaging();  // 设置主动消息功能
     },
     
     // 加载初始数据
@@ -491,6 +493,186 @@ const App = {
         });
     },
     
+    // 设置主动消息功能
+    _setupProactiveMessaging: function() {
+        // 检查页面打开时是否需要发送主动消息
+        this._checkForPendingProactiveMessages();
+        
+        // 设置定时器，定期检查是否需要发送主动消息（每10分钟检查一次）
+        this.proactiveTimer = setInterval(() => {
+            this._checkForPendingProactiveMessages();
+        }, 10 * 60 * 1000);
+        
+        // 页面关闭或隐藏时，清除定时器
+        window.addEventListener('beforeunload', () => {
+            if (this.proactiveTimer) {
+                clearInterval(this.proactiveTimer);
+            }
+        });
+        
+        // 页面从隐藏变为可见时，立即检查
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this._checkForPendingProactiveMessages();
+            }
+        });
+    },
+    
+    // 检查是否需要发送主动消息
+    _checkForPendingProactiveMessages: function() {
+        if (!this.currentConversation || this.isLoading) return;
+        
+        // 检索当前会话的主动消息状态
+        const proactiveState = StorageService.getProactiveState(this.currentConversation.id);
+        
+        // 获取当前时间
+        const now = Date.now();
+        
+        // 如果没有消息，不需要主动发送
+        if (this.currentConversation.messages.length === 0) return;
+        
+        // 获取最后一条消息
+        const lastMessage = this.currentConversation.messages[this.currentConversation.messages.length - 1];
+        
+        // 如果最后一条是AI消息，且是主动发送的，且已经发送了4条，则不再发送
+        if (lastMessage.role === 'assistant' && 
+            proactiveState && 
+            proactiveState.sentCount >= 4) {
+            return;
+        }
+        
+        // 如果最后一条是用户消息，或者是AI的非主动消息
+        if (lastMessage.role === 'user' || 
+            (lastMessage.role === 'assistant' && (!proactiveState || !proactiveState.lastProactiveTime || proactiveState.sentCount < 4))) {
+            
+            // 计算自上次消息以来的时间（小时）
+            const hoursElapsed = (now - lastMessage.timestamp) / (1000 * 60 * 60);
+            
+            // 如果超过48小时且AI已经发送了主动消息，则不再发送
+            if (hoursElapsed > 48 && proactiveState && proactiveState.sentCount > 0) {
+                return;
+            }
+            
+            // 如果在10-48小时之间，且最后一条是用户消息或AI的回复，则发送主动消息
+            // 为了测试，我们可以设置更短的时间，比如10分钟到48小时
+            // 实际使用时，可以根据需要调整时间间隔
+            const minTimeHours = 10; // 最短10小时
+            // 为测试目的，将其改为10分钟：const minTimeMinutes = 10;
+            
+            if (hoursElapsed >= minTimeHours && hoursElapsed <= 48) {
+                // 如果有proactiveState，检查上次主动发送时间
+                if (proactiveState && proactiveState.lastProactiveTime) {
+                    const hoursSinceLastProactive = (now - proactiveState.lastProactiveTime) / (1000 * 60 * 60);
+                    // 确保距离上次主动消息至少5小时以上
+                    // 为测试目的，可以改为5分钟：const minIntervalMinutes = 5;
+                    const minIntervalHours = 5;
+                    if (hoursSinceLastProactive < minIntervalHours) {
+                        return;
+                    }
+                }
+                
+                // 发送主动消息
+                this._sendProactiveMessage();
+            }
+        }
+    },
+    
+    // 发送主动消息
+    _sendProactiveMessage: async function() {
+        if (!this.currentConversation || this.isLoading) return;
+        
+        // 获取当前的主动状态
+        let proactiveState = StorageService.getProactiveState(this.currentConversation.id) || {
+            sentCount: 0,
+            lastProactiveTime: null
+        };
+        
+        // 如果已经发送了4条消息，不再发送
+        if (proactiveState.sentCount >= 4) return;
+        
+        this.isLoading = true;
+        
+        try {
+            const character = StorageService.getCharacter();
+            
+            // 构建系统提示
+            let systemPrompt = '';
+            if (character.description) {
+                systemPrompt += character.description + "\n\n";
+            }
+            
+            if (character.personalityTags && character.personalityTags.length > 0) {
+                systemPrompt += `性格特点: ${character.personalityTags.join('、')}\n\n`;
+            }
+            
+            if (character.speechStyle) {
+                systemPrompt += `说话风格示例:\n${character.speechStyle}\n\n`;
+            }
+            
+            if (character.knowledge) {
+                systemPrompt += `你特别擅长: ${character.knowledge}\n\n`;
+            }
+            
+            if (character.rules) {
+                systemPrompt += `行为规则:\n${character.rules}\n\n`;
+            }
+            
+            // 添加主动消息的特殊指令
+            systemPrompt += `现在，用户已经有一段时间没有回复你了。请发送一条友好的主动消息。根据之前的对话内容，你可以：
+1. 继续之前的话题，提供更多见解或问题
+2. 分享一个有趣的新话题或事实
+3. 询问用户近况或表达关心
+4. 提供一些有用的信息或建议
+请保持自然、友好的语气，不要过于刻意或打扰用户。这是你的第${proactiveState.sentCount + 1}条主动消息。`;
+            
+            // 获取对话上下文
+            const messages = this.currentConversation.messages.slice(-10);
+            
+            // 准备发送给AI的记忆列表
+            const memories = [
+                ...character.memories, // 全局记忆
+                ...this.currentConversation.memories // 会话级记忆
+            ];
+            
+            // 调用AI服务生成主动消息
+            const aiResponse = await AIService.sendMessage(
+                messages,
+                systemPrompt,
+                memories
+            );
+            
+            // 构建AI消息对象
+            const aiMessage = {
+                id: generateId(),
+                role: 'assistant',
+                content: aiResponse.content,
+                timestamp: Date.now(),
+                isProactive: true
+            };
+            
+            // 更新会话
+            this.currentConversation.messages.push(aiMessage);
+            this.currentConversation.updatedAt = Date.now();
+            StorageService.saveConversation(this.currentConversation);
+            
+            // 更新主动消息状态
+            proactiveState.sentCount += 1;
+            proactiveState.lastProactiveTime = Date.now();
+            StorageService.saveProactiveState(this.currentConversation.id, proactiveState);
+            
+            // 更新UI
+            UIComponents.renderMessages(this.currentConversation.messages, character);
+            UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
+            
+            console.log(`已发送第${proactiveState.sentCount}条主动消息`);
+            
+        } catch (error) {
+            console.error('发送主动消息失败:', error);
+        } finally {
+            this.isLoading = false;
+        }
+    },
+    
     // 更新系统提示预览
     _updateSystemPromptPreview: function() {
         const description = document.getElementById('character-description').value.trim();
@@ -554,6 +736,12 @@ const App = {
         StorageService.setCurrentConversationId(id);
         this.currentConversation = newConversation;
         
+        // 初始化主动消息状态
+        StorageService.saveProactiveState(id, {
+            sentCount: 0,
+            lastProactiveTime: null
+        });
+        
         // 更新UI
         const conversations = StorageService.getConversations();
         UIComponents.renderConversations(conversations, id);
@@ -596,6 +784,11 @@ const App = {
         const allMemories = [...character.memories, ...conversation.memories];
         UIComponents.renderMemories(allMemories);
         
+        // 加载后立即检查是否需要发送主动消息
+        setTimeout(() => {
+            this._checkForPendingProactiveMessages();
+        }, 2000);
+        
         // 聚焦输入框
         document.getElementById('message-input').focus();
     },
@@ -603,6 +796,9 @@ const App = {
     // 删除会话
     deleteConversation: function(id) {
         const conversations = StorageService.deleteConversation(id);
+        
+        // 删除会话的主动消息状态
+        StorageService.deleteProactiveState(id);
         
         // 如果有剩余会话，加载第一个
         if (conversations.length > 0) {
@@ -653,6 +849,12 @@ const App = {
         
         // 保存会话
         StorageService.saveConversation(this.currentConversation);
+        
+        // 重置主动消息计数器（用户发送消息后，重新开始计时）
+        StorageService.saveProactiveState(this.currentConversation.id, {
+            sentCount: 0,
+            lastProactiveTime: null
+        });
         
         // 更新UI
         const character = StorageService.getCharacter();

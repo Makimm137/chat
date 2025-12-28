@@ -1233,60 +1233,6 @@ input:focus, textarea:focus, select:focus {
     }
 }
 
-/* 分段消息样式 */
-.typing-dots {
-    display: inline-flex;
-    align-items: center;
-}
-
-.typing-dots span {
-    height: 8px;
-    width: 8px;
-    margin: 0 2px;
-    background-color: var(--text-light);
-    border-radius: 50%;
-    display: inline-block;
-    animation: typingDot 1.4s infinite ease-in-out both;
-}
-
-.typing-dots span:nth-child(1) {
-    animation-delay: 0s;
-}
-
-.typing-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.typing-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes typingDot {
-    0%, 80%, 100% { 
-        transform: scale(0.6);
-        opacity: 0.6;
-    }
-    40% { 
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-/* AI消息类型指示器 */
-.ai-message.typing-indicator {
-    opacity: 0.8;
-}
-
-/* 连续消息样式 - 减少间距 */
-.ai-message + .ai-message {
-    margin-top: -12px;
-}
-
-/* 连续消息的头像显示处理 */
-.ai-message + .ai-message .message-avatar {
-    visibility: hidden;
-}
-
 /* 移动端样式调整 */
 .mobile-only {
     display: none;

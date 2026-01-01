@@ -641,28 +641,38 @@ const App = {
                 memories
             );
             
-            // 构建AI消息对象
-            const aiMessage = {
-                id: generateId(),
-                role: 'assistant',
-                content: aiResponse.content,
-                timestamp: Date.now(),
-                isProactive: true
-            };
+            // 按空行分割消息
+            const messageParts = aiResponse.content.split(/\n\s*\n/).filter(part => part.trim());
             
-            // 更新会话
-            this.currentConversation.messages.push(aiMessage);
-            this.currentConversation.updatedAt = Date.now();
-            StorageService.saveConversation(this.currentConversation);
+            // 逐条发送消息
+            for (let i = 0; i < messageParts.length; i++) {
+                const aiMessage = {
+                    id: generateId(),
+                    role: 'assistant',
+                    content: messageParts[i].trim(),
+                    timestamp: Date.now(),
+                    isProactive: true
+                };
+                
+                this.currentConversation.messages.push(aiMessage);
+                this.currentConversation.updatedAt = Date.now();
+                StorageService.saveConversation(this.currentConversation);
+                
+                // 更新UI
+                UIComponents.renderMessages(this.currentConversation.messages, character);
+                UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
+                
+                // 如果不是最后一条消息，等待几秒
+                if (i < messageParts.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 3000)); // 间隔3秒
+                }
+            }
             
             // 更新主动消息状态
             proactiveState.sentCount += 1;
             proactiveState.lastProactiveTime = Date.now();
             StorageService.saveProactiveState(this.currentConversation.id, proactiveState);
             
-            // 更新UI
-            UIComponents.renderMessages(this.currentConversation.messages, character);
-            UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
             
             console.log(`已发送第${proactiveState.sentCount}条主动消息`);
             
@@ -900,40 +910,37 @@ const App = {
                 systemPrompt, 
                 memories
             );
-            
-           // 1. 先将用户消息标记为已读
+
+            // 将用户消息标记为已读
             userMessage.isRead = true;
             this.currentConversation.messages[this.currentConversation.messages.length - 1] = userMessage;
             
-            // 2. 移除加载指示器（让第一条消息出来前动画先消失）
-            UIComponents.removeLoadingIndicator();
+            // 按空行分割消息
+            const messageParts = aiResponse.content.split(/\n\s*\n/).filter(part => part.trim());
             
-            // 3. 拆分 AI 回复内容（按空行拆分，并过滤掉空段落）
-            const messageParts = aiResponse.content.split(/\n\n+/).filter(part => part.trim() !== "");
-            
-            // 4. 循环发送每一段
+            // 逐条发送消息
             for (let i = 0; i < messageParts.length; i++) {
-                const aiMessagePart = {
+                const aiMessage = {
                     id: generateId(),
                     role: 'assistant',
                     content: messageParts[i].trim(),
                     timestamp: Date.now()
                 };
+                
+             // 将这一段存入对话记录
+            this.currentConversation.messages.push(aiMessagePart);
+            this.currentConversation.updatedAt = Date.now();
+            StorageService.saveConversation(this.currentConversation);
             
-                // 将这一段存入对话记录
-                this.currentConversation.messages.push(aiMessagePart);
-                this.currentConversation.updatedAt = Date.now();
-                StorageService.saveConversation(this.currentConversation);
+            // 渲染 UI
+             UIComponents.renderMessages(this.currentConversation.messages, character);
+             UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
             
-                // 渲染 UI
-                UIComponents.renderMessages(this.currentConversation.messages, character);
-                UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
-            
-                // 5. 如果不是最后一段，等待 1.5 秒（1500毫秒）再发下一段
-                if (i < messageParts.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1500)); 
-                }
+            // 5. 如果不是最后一段，等待 1.5 秒（1500毫秒）再发下一段
+            if (i < messageParts.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 3000)); 
             }
+          }
 
             
             // 每隔10条消息自动生成一次记忆

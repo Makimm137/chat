@@ -472,27 +472,39 @@ const UIComponents = {
                date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
     },
     
-    // 格式化消息内容（处理换行、代码块、表情符号等）
-    _formatMessage: function(content) {
-        if (!content) return '';
+        // 格式化消息内容（增强版：支持粗体、斜体、代码块等）
+        _formatMessage: function(content) {
+            if (!content) return '';
         
-        // 替换换行符为<br>
-        let formatted = content.replace(/\n/g, '<br>');
+            // 1. 先保护代码块，防止里面的星号被错误解析（可选增强，这里直接处理简单标签）
+            let formatted = content;
         
-        // 处理代码块 ()
-        formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+            // 2. 处理代码块 (```code```)
+            formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
         
-        // 处理行内代码 (`code`)
-        formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // 3. 处理行内代码 (`code`)
+            formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
         
-        // 简单表情符号转换
-        formatted = formatted.replace(/:smile:/g, '😊')
-                   .replace(/:laugh:/g, '😄')
-                   .replace(/:heart:/g, '❤️')
-                   .replace(/:thumbsup:/g, '👍');
+            // 4. 处理粗体 (**bold**)
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         
-        return formatted;
-    },
+            // 5. 处理斜体 (*italic*)
+            formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            
+            // 6. 处理下划线 (__underline__)
+            formatted = formatted.replace(/__(.*?)__/g, '<u>$1</u>');
+        
+            // 7. 处理换行符（注意：放在加粗斜体后面，防止干扰）
+            formatted = formatted.replace(/\n/g, '<br>');
+        
+            // 8. 简单表情符号转换
+            formatted = formatted.replace(/😊/g, '😊')
+                .replace(/😄/g, '😄')
+                .replace(/❤️/g, '❤️')
+                .replace(/👍/g, '👍');
+        
+            return formatted;
+        },
     
     // 检查是否滚动到底部
     _isScrolledToBottom: function(element) {

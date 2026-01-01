@@ -901,26 +901,40 @@ const App = {
                 memories
             );
             
-            // 构建AI消息对象
-            const aiMessage = {
-                id: generateId(),
-                role: 'assistant',
-                content: aiResponse.content,
-                timestamp: Date.now()
-            };
-            
-            // 将用户消息标记为已读
+           // 1. 先将用户消息标记为已读
             userMessage.isRead = true;
-            
-            // 更新会话
             this.currentConversation.messages[this.currentConversation.messages.length - 1] = userMessage;
-            this.currentConversation.messages.push(aiMessage);
-            this.currentConversation.updatedAt = Date.now();
-            StorageService.saveConversation(this.currentConversation);
             
-            // 更新UI
-            UIComponents.renderMessages(this.currentConversation.messages, character);
-            UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
+            // 2. 移除加载指示器（让第一条消息出来前动画先消失）
+            UIComponents.removeLoadingIndicator();
+            
+            // 3. 拆分 AI 回复内容（按空行拆分，并过滤掉空段落）
+            const messageParts = aiResponse.content.split(/\n\n+/).filter(part => part.trim() !== "");
+            
+            // 4. 循环发送每一段
+            for (let i = 0; i < messageParts.length; i++) {
+                const aiMessagePart = {
+                    id: generateId(),
+                    role: 'assistant',
+                    content: messageParts[i].trim(),
+                    timestamp: Date.now()
+                };
+            
+                // 将这一段存入对话记录
+                this.currentConversation.messages.push(aiMessagePart);
+                this.currentConversation.updatedAt = Date.now();
+                StorageService.saveConversation(this.currentConversation);
+            
+                // 渲染 UI
+                UIComponents.renderMessages(this.currentConversation.messages, character);
+                UIComponents.renderConversations(StorageService.getConversations(), this.currentConversation.id);
+            
+                // 5. 如果不是最后一段，等待 1.5 秒（1500毫秒）再发下一段
+                if (i < messageParts.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1500)); 
+                }
+            }
+
             
             // 每隔10条消息自动生成一次记忆
             if (this.currentConversation.messages.length % 10 === 0 && this.currentConversation.messages.length >= 10) {
